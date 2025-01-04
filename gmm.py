@@ -70,8 +70,8 @@ params = DatasetParam(
                 [-0.75, 1],
             ],
             [
-                [20, 9],
-                [9, 20],
+                [10, 9],
+                [9, 10],
             ],
             [
                 [10, 0],
@@ -204,14 +204,19 @@ class EM:
         n, n_dim = x.shape
         self.p_z = self.z.mean(axis=0)
         self.mus = np.einsum("nd,nc->cd", x, self.z) / (self.z.sum(axis=0)[:, None])
-
+        # self.mus = np.einsum("nd,nc->cd", x, self.z) / (self.z.sum(axis=0)[:, None])
+        # self.mus - np.einsum("cd,c->cd", self.mus, self.z.sum(axis=0)**-1)
         x_mu = x[None, :, :] - self.mus[:, None, :]  # n_classes, n_samples, n_dim
         x_mu_2 = np.einsum("cnd,cne->cnde", x_mu, x_mu)
-        # add a small amount to make sure it is still valid covariacne matrix
         self.covs = (
             np.einsum("cnde,nc->cde", x_mu_2, self.z)
             / (self.z.sum(axis=0)[:, None, None])
         ) + (np.eye(n_dim) * 1e-10)  # n_classes, n_dim, n_dim
+
+        # self.covs = np.einsum("cnde,nc->cde", x_mu_2, self.z)
+        # self.covs = np.einsum("cde,c->cde", self.covs, self.z.sum(axis=0) ** -1)
+        # # add a small amount to make sure it is still valid covariacne matrix
+        # self.covs += np.eye(n_dim) * 1e-10  # n_classes, n_dim, n_dim
 
     def fit(self, x):
         self.init_parameters(x)
