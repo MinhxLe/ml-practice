@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from mle.config import BaseCfg
 import numpy as np
 import torch
-from torch import nn
+from torch import distributed, nn
 
 
 @dataclass(frozen=True)
@@ -33,11 +33,14 @@ dataset = generate_dataset(cfg.n_samples)
 
 class Model(nn.Module):
     def __init__(self, hidden_dim: int):
-        pass
+        self.categorical_weights = ...
+        self.mus = ...
+        self.log_var = ...
 
-    def sample(self, logits):
+    def sample_latent(self, n, logits):
         distribution = torch.distributions.Categorical(logits)
-        pass
+        samples = distribution.sample_n(n).to(Cfg.device)
+        return samples, distribution.log_prob(samples)
 
     def forward(self, x):
         pass
