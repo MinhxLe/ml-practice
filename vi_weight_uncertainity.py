@@ -4,7 +4,6 @@ implementation of https://arxiv.org/pdf/1505.05424
 
 import torch
 from torch import nn, distributions
-from dataclasses import dataclass
 
 
 class LinearVariational(nn.Module):
