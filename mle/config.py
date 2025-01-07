@@ -6,6 +6,7 @@ from dataclasses import dataclass
 class BaseCfg:
     project_name: str
     root_tmp_dir: str = "./tmp"
+    seed: int = 42
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     @property
