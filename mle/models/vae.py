@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+import math
 
 
 class Encoder(nn.Module):
@@ -88,12 +89,11 @@ def loss_function(x_true, x_pred, mu, log_var):
     # bse because regression of [0, 1]. this can be interpreted as P(x|z)
     bse_loss = F.binary_cross_entropy(x_pred, x_true, reduction="sum")
 
-    # [TODO] fix this implementation
+    # this computes over all batches at once
     var = torch.exp(log_var)
     trace = torch.sum(var)
     log_det = torch.sum(log_var)
-    z_dim = mu.shape[0]
-    kl = 0.5 * (trace + (mu**2).sum() - z_dim - log_det)
-
-    kl = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+    mu_squared = (mu.pow(2)).sum()
+    z_dim = math.prod(mu.shape)
+    kl = 0.5 * (trace + mu_squared - z_dim - log_det)
     return torch.sum(bse_loss + kl)
