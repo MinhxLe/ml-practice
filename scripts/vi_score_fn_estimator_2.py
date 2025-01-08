@@ -1,10 +1,14 @@
+"""
+simple implementation fo VI with score function estimttor.
+Data is bernoulli
+"""
+
 from dataclasses import dataclass
 
 from torch.utils.data import DataLoader
 from mle.config import BaseCfg
 import torch
-from torch import det, nn, nonzero_static
-from tqdm import tqdm
+from torch import nn
 
 
 @dataclass(frozen=True)
@@ -22,7 +26,7 @@ class Cfg(BaseCfg):
     batch_size: int = 1000
     n_latent_samples: int = 20
 
-    eval_n_step: int = 100
+    eval_interval: int = 100
 
 
 cfg = Cfg()
@@ -92,5 +96,5 @@ for epoch in range(cfg.n_epoch):
         loss = loss_fn(x_batch, p, log_q)
         loss.backward()
         optimizer.step()
-    if (epoch % cfg.eval_n_step) == 0:
+    if (epoch % cfg.eval_interval) == 0:
         evaluate_model(model)

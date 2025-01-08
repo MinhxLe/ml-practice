@@ -1,27 +1,31 @@
 """
 example of variational inference with score function estimator.
+Data is mixture of gaussian
 """
 
 from dataclasses import dataclass
 
 from torch.utils.data import DataLoader
-from torchvision.transforms.functional import to_tensor
 from mle.config import BaseCfg
 import numpy as np
 import torch
-from torch import nn, optim
+from torch import nn
 from tqdm import tqdm
 
 
 @dataclass(frozen=True)
 class Cfg(BaseCfg):
     project_name: str = "vi_with_score_function_estimator"
-    n_samples: int = 1000
+    dataset_size: int = 2000
 
     # training
-    lr = 1e-3
+    lr = 0.005
     n_epoch: int = 200
     batch_size: int = 100
+    n_latent_samples: int = 20
+
+    # logging
+    eval_interval: int = 20
 
 
 cfg = Cfg()
@@ -64,22 +68,32 @@ class Model(nn.Module):
 
 
 def loss_fn(x, mu, log_var, latent_log_p, n_categories):
-    _, n_features = mu.shape
+    x = x.unsqueeze(-1)  # 1, batch, feature
+    n_latent_samples, n_features = mu.shape
     var = torch.einsum(
         "bd,de->bde", log_var.exp(), torch.eye(n_features).to(cfg.device)
-    )  # batch x feature x features
+    )  # batch, feature, feature
     likelihood = (
         torch.distributions.MultivariateNormal(mu, var).log_prob(x).to(cfg.device)
     )
+    # unfiform categorical
     prior_log_p = -torch.log(torch.tensor(n_categories, device=cfg.device))
     # p(x|z) - (q(z|x) - p(z))
-    reward = likelihood - (latent_log_p - prior_log_p)
+    reward = (likelihood - (latent_log_p - prior_log_p)).sum(axis=0)
     return -(latent_log_p * reward.detach()).mean()
+
+
+def eval_model(model, x):
+    model.eval()
+    with torch.no_grad():
+        logits = model.mixing_logits(x).mean(axis=0)
+        estimated_component = nn.Softmax()(logits)
+        print(f"Estimated component weights: {estimated_component}")
 
 
 np.random.seed(cfg.seed)
 torch.random.manual_seed(cfg.seed)
-x = generate_dataset(cfg.n_samples).to(cfg.device)
+x = generate_dataset(cfg.dataset_size).to(cfg.device)
 dataloader = DataLoader(x, batch_size=cfg.batch_size)
 
 
@@ -97,3 +111,5 @@ for epoch in tqdm(range(cfg.n_epoch), total=cfg.n_epoch):
         total_loss += loss.item()
         loss.backward()
         optimizer.step()
+    if (epoch % cfg.eval_interval) == 0:
+        eval_model(model, x)
