@@ -168,3 +168,83 @@ def value_iteration(
     q_star = env.reward + gamma * einsum(env.dynamics, old_v, "fs a ts,ts->fs a")
     policy = np.eye(env.n_actions)[np.argmax(q_star, axis=1)]
     return policy, v
+
+
+def every_mc_estimate(trajectory: np.ndarray, n_states: int, gamma: float):
+    """
+    trajectory: np.array (time, (state, action, reward))
+    returns:
+    value function
+    """
+    n_steps, _ = trajectory.shape
+
+    states = trajectory[:, 0]
+    rewards = trajectory[:, 2]
+
+    v = np.zeros((n_states,))
+    n = np.zeros((n_states,))
+    g = 0
+    for i in reversed(range(n_steps)):
+        s_i = states[i]
+        g = rewards[i] + gamma * g
+        n[s_i] += 1
+        # runnin average
+        # v[s_i] = v[s_i] * (n[s_i] - 1) / n[s_i] + g / n[s_i]
+        v[s_i] = v[s_i] + (g - v[s_i]) / n[s_i]
+    return v
+
+
+def incremental_mc_estimation(
+    v: np.ndarray,
+    trajectory: np.ndarray,
+    gamma: float,
+    lr: float,
+) -> np.ndarray:
+    """
+    trajectory: np.array (time, (state, action, reward))
+    returns:
+    value function
+    """
+    n_steps, _ = trajectory.shape
+
+    states = trajectory[:, 0]
+    rewards = trajectory[:, 2]
+
+    g = 0
+    for i in reversed(range(n_steps)):
+        s_i = states[i]
+        g = rewards[i] + gamma * g
+        v[s_i] = v[s_i] + lr * (g - v[s_i])
+    return v
+
+
+def td_update(
+    v: np.ndarray,
+    trajectory: np.ndarray,
+    n_steps: int,
+    gamma: float,  # return decay rate
+    lr: float,
+) -> np.ndarray:
+    """
+    parameters:
+    v: value function
+    trajectory: (time, (state, action, reward))
+    """
+    trajectory_length, _ = trajectory.shape
+
+    states = trajectory[:, 0].astype(int)
+    rewards = trajectory[:, 2]
+    gamma_powers = gamma ** np.arange(n_steps)
+    for i in range(trajectory_length):
+        steps_left = min(n_steps, trajectory_length - i)
+        s_i = states[i]
+        discounted_reward = (
+            rewards[i : i + steps_left] * gamma_powers[:steps_left]
+        ).sum()
+        if i + steps_left < trajectory_length:
+            bootstrap = (gamma**steps_left) * v[i + n_steps]
+        else:
+            bootstrap = 0
+        target = discounted_reward + bootstrap
+        v[s_i] = v[s_i] + lr * (target - v[s_i])
+    return v
