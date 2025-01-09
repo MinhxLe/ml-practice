@@ -6,7 +6,7 @@ from typing import Tuple
 import numpy as np
 from dataclasses import dataclass
 from loguru import logger
-from einops import einsum
+from einops import einsum, reduce
 
 
 @dataclass
@@ -150,4 +150,21 @@ def policy_iteration(
         policy = improve_policy(policy, v, env, gamma)
         if np.linalg.norm(policy - old_policy, np.inf) < tol:
             break
+    return policy, v
+
+
+def value_iteration(
+    env: Env, gamma: float, tol: float = 1e-3
+) -> Tuple[np.ndarray, np.ndarray]:
+    v = np.zeros((env.n_states,))
+    while True:
+        old_v = v
+        q = env.reward + gamma * einsum(env.dynamics, old_v, "fs a ts,ts->fs a")
+        # v = np.max(q, axis=1)
+        v = reduce(q, "s a->s", "max")
+        if np.linalg.norm(v - old_v, np.inf) < tol:
+            break
+
+    q_star = env.reward + gamma * einsum(env.dynamics, old_v, "fs a ts,ts->fs a")
+    policy = np.eye(env.n_actions)[np.argmax(q_star, axis=1)]
     return policy, v

@@ -1,4 +1,4 @@
-from mle.rl.tabular import MRP, Env, evaluate_policy, policy_iteration
+from mle.rl.tabular import MRP, Env, evaluate_policy, policy_iteration, value_iteration
 import numpy as np
 
 from tests.envs.riverswim import RiverSwim
@@ -82,4 +82,17 @@ def test_policy_iteration_riverswim():
     expected_v = np.array([0.01515, 0.01015, 0.0093, 0.04278, 0.27441, 1.79521])
 
     assert np.all(policy == expected_policy)
+    # this is close enough
+    assert np.allclose(v, expected_v, atol=1e-2)
+
+
+def test_policy_iteration_riverswim():
+    env = riverswim_to_env(RiverSwim("STRONG", 1234))
+    policy, v = value_iteration(env, gamma=0.67, tol=1e-3)
+
+    expected_policy = np.eye(2)[[0, 0, 1, 1, 1, 1]]
+    expected_v = np.array([0.01515, 0.01015, 0.0093, 0.04278, 0.27441, 1.79521])
+
+    assert np.all(policy == expected_policy)
+    # this is close enough
     assert np.allclose(v, expected_v, atol=1e-2)
