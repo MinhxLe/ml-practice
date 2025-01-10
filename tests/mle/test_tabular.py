@@ -1,11 +1,12 @@
-from mle.rl.tabular import MRP, Env, evaluate_policy, policy_iteration, value_iteration
+from mle.rl.tabular import MRP, evaluate_policy, policy_iteration, value_iteration
+from mle.rl.environment import TabularEnvSpec
 import numpy as np
 
 from tests.envs.riverswim import RiverSwim
 
 
-def riverswim_to_env(rs: RiverSwim) -> Env:
-    return Env(
+def riverswim_to_env(rs: RiverSwim) -> TabularEnvSpec:
+    return TabularEnvSpec(
         n_actions=rs.num_actions,
         n_states=rs.num_states,
         dynamics=rs.T,
@@ -36,7 +37,7 @@ def test_evaluate_value_fn():
             [0, 1],
         ]
     )
-    env = Env(
+    env = TabularEnvSpec(
         n_actions=2,
         n_states=2,
         reward=np.array(

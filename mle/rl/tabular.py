@@ -7,6 +7,7 @@ import numpy as np
 from dataclasses import dataclass
 from loguru import logger
 from einops import einsum, reduce
+from mle.rl.environment import TabularEnvSpec
 
 
 @dataclass
@@ -49,25 +50,6 @@ class MRP:
         return value
 
 
-@dataclass
-class Env:
-    n_actions: int
-    n_states: int
-    dynamics: np.ndarray  # dynamics[s, a] is transition probabilities
-    reward: np.ndarray  # reward[s, a] is reward for being in a state
-
-    def __post_init__(self):
-        from_state_dim, from_action_dim, to_state_dim = self.dynamics.shape
-        assert from_state_dim == self.n_states
-        assert to_state_dim == self.n_states
-        assert from_action_dim == self.n_actions
-        assert np.all(self.dynamics.sum(axis=-1) == 1)
-
-        state_dim, action_dim = self.reward.shape
-        assert state_dim == self.n_states
-        assert action_dim == self.n_actions
-
-
 def _validate_gamma(gamma: float):
     assert 0 <= gamma < 1
 
@@ -76,7 +58,7 @@ def _validate_policy(policy: np.ndarray):
     assert np.all(policy.sum(axis=-1) == 1)
 
 
-def _validate_policy_env(policy: np.ndarray, env: Env):
+def _validate_policy_env(policy: np.ndarray, env: TabularEnvSpec):
     state_dim, action_dim = policy.shape
     assert state_dim == env.n_states
     assert action_dim == env.n_actions
@@ -85,7 +67,7 @@ def _validate_policy_env(policy: np.ndarray, env: Env):
 
 def evaluate_policy(
     policy: np.ndarray,
-    env: Env,
+    env: TabularEnvSpec,
     gamma: float,
     tol: float = 1e-3,
     max_iters: int = 1_000,
@@ -123,7 +105,7 @@ def evaluate_policy(
 def improve_policy(
     policy: np.ndarray,
     v_policy: np.ndarray,
-    env: Env,
+    env: TabularEnvSpec,
     gamma: float,
     tol: float = 1e-3,
     max_iters: int = 1_000,
@@ -137,7 +119,7 @@ def improve_policy(
 
 
 def policy_iteration(
-    env: Env, gamma: float, tol: float = 1e-3
+    env: TabularEnvSpec, gamma: float, tol: float = 1e-3
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     given an env, use policy iteration got find optimal policy and value function
@@ -154,7 +136,7 @@ def policy_iteration(
 
 
 def value_iteration(
-    env: Env, gamma: float, tol: float = 1e-3
+    env: TabularEnvSpec, gamma: float, tol: float = 1e-3
 ) -> Tuple[np.ndarray, np.ndarray]:
     v = np.zeros((env.n_states,))
     while True:
