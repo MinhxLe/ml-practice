@@ -1,5 +1,11 @@
 from dataclasses import dataclass
+from typing import Tuple
 import numpy as np
+import gymnasium as gym
+import torch
+from loguru import logger
+
+from mle.rl.utils import Transition, build_transition
 
 
 @dataclass(frozen=True)
@@ -90,3 +96,48 @@ class TabularEnv:
         self.t += 1
         self.state = next_state
         return state
+
+
+class GymEnv:
+    def __init__(self, env: gym.Env, torch_type=torch.float32):
+        self._env = env
+        self.t = 0
+        self.terminated = False
+        self.reset()
+        self.torch_type = torch_type
+
+    @property
+    def n_actions(self) -> int:
+        return self._env.action_space.n.item()
+
+    @property
+    def state_dim(self) -> int:
+        return self.state.shape[0]
+
+    @property
+    def state(self):
+        return torch.tensor(self._env.unwrapped.state, dtype=self.torch_type)
+
+    def reset(self):
+        self.t = 0
+        self.terminated = False
+        self._env.reset()
+
+    def step(self, action) -> Tuple[Transition, bool]:
+        if self.terminated:
+            raise ValueError("environment terminated, please reset!")
+        state = self.state
+        next_state, reward, terminated, truncated, _ = self._env.step(action)
+        transition = build_transition(
+            state,  # already casted to torch
+            action,
+            reward,
+            torch.tensor(next_state, dtype=self.torch_type) if not terminated else None,
+            self.t,
+            terminated=terminated,
+        )
+        self.t += 1
+        self.terminated = terminated
+        if truncated:
+            logger.warning("truncated")
+        return transition, terminated or truncated
