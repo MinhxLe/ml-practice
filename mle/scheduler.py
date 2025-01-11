@@ -28,5 +28,5 @@ class ExponentialDecayScheduler:
     @property
     def value(self) -> float:
         return self.end_val + (self.start_val - self.end_val) * math.exp(
-            -1.0 * self.steps_done / self.decay
+            -1.0 * self.steps_done * self.decay
         )

@@ -28,7 +28,7 @@ def build_transition(
             reward=reward,
             next_state=next_state,
             time_step=time_step,
-            terminated=next_state is None,
+            terminated=terminated,
         ),
         # [NOTE] it is easier to think of everything as having a batch_dim.
     )

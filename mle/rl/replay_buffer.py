@@ -7,6 +7,11 @@ class ReplayBuffer:
         self.max_size = max_size
         self.transitions = None
 
+    def __len__(self):
+        if self.transitions is None:
+            return 0
+        return self.transitions.shape[0]
+
     def push(self, transition: TensorDict) -> None:
         if transition.shape == torch.Size([]):
             transition = transition.unsqueeze(0)

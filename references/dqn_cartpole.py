@@ -2,6 +2,7 @@
 https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
 """
 
+import wandb
 import gymnasium as gym
 import math
 import random
@@ -14,8 +15,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from loguru import logger
 
 env = gym.make("CartPole-v1")
+wandb.init(project="reference_dqn_cartpole")
 
 # set up matplotlib
 is_ipython = "inline" in matplotlib.get_backend()
@@ -195,6 +198,7 @@ def optimize_model():
     # In-place gradient clipping
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
+    return loss.item()
 
 
 if torch.cuda.is_available() or torch.backends.mps.is_available():
@@ -226,7 +230,10 @@ for i_episode in range(num_episodes):
         state = next_state
 
         # Perform one step of the optimization (on the policy network)
-        optimize_model()
+        loss = optimize_model()
+        wandb.log(dict(i=steps_done, train_loss=loss))
+        if (steps_done % 1_000) == 0:
+            logger.info(f"Episode {i_episode}/{num_episodes}, loss: {loss}")
 
         # Soft update of the target network's weights
         # θ′ ← τ θ + (1 −τ )θ′
@@ -239,6 +246,7 @@ for i_episode in range(num_episodes):
         target_net.load_state_dict(target_net_state_dict)
 
         if done:
+            wandb.log(dict(episode=i_episode, duration=t + 1))
             episode_durations.append(t + 1)
             # plot_durations()
             break
