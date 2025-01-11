@@ -9,6 +9,7 @@ dependencies = [
     "gymnasium[classic-control,mujoco]<1.0.0",
     "loguru>=0.7.3",
     "matplotlib>=3.10.0",
+    "pyqt6>=6.8.0",
     "scipy>=1.14.1",
     "tensordict>=0.6.2",
     "torch>=2.5.1",
@@ -16,6 +17,7 @@ dependencies = [
     "torchrl>=0.6.0",
     "torchvision>=0.20.1",
     "tqdm>=4.67.1",
+    "wandb>=0.19.2",
 ]
 
 [dependency-groups]
