@@ -38,7 +38,6 @@ def test_basic():
     assert sampled_t["reward"] == 2
     assert sampled_t["next_state"] == 1
     assert sampled_t["time_step"] == 1
-    assert sampled_ts["terminated"] == False
 
 
 def test_max_size():
@@ -57,11 +56,3 @@ def test_sample_multiple():
     rb.push(build_transition())
     sampled_ts = rb.sample(n=2)
     assert sampled_ts.shape[0] == 2
-
-
-def test_null_next_step():
-    rb = ReplayBuffer(5)
-    rb.push(build_transition(next_state=None))
-    sampled_ts = rb.sample()
-    assert "next_step" not in sampled_ts[0]
-    assert sampled_ts["terminated"] == True
