@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from math import trunc
+from typing import Tuple
 import numpy as np
 import gymnasium as gym
 import torch
@@ -121,11 +123,11 @@ class GymEnv:
         self.terminated = False
         self._env.reset()
 
-    def step(self, action) -> Transition:
+    def step(self, action) -> Tuple[Transition, bool]:
         if self.terminated:
             raise ValueError("environment terminated, please reset!")
         state = self.state
-        next_state, reward, terminated, _, _ = self._env.step(action)
+        next_state, reward, terminated, truncated, _ = self._env.step(action)
         transition = build_transition(
             state,  # already casted to torch
             action,
@@ -136,4 +138,4 @@ class GymEnv:
         )
         self.t += 1
         self.terminated = terminated
-        return transition
+        return transition, terminated or truncated

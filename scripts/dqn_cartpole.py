@@ -162,9 +162,9 @@ i = 0
 durations = []
 for i_episode in range(cfg.n_episodes):
     env.reset()
-    while not env.terminated:
+    while True:
         action = select_eps_greedy_action(model, env.state, eps_scheduler.value)
-        transition = env.step(action)
+        transition, done = env.step(action)
         replay_buffer.push(transition)
         if len(replay_buffer) >= cfg.batch_size:
             transitions = replay_buffer.sample(cfg.batch_size)
@@ -173,11 +173,11 @@ for i_episode in range(cfg.n_episodes):
                 logger.info(f"Episode {i_episode}/{cfg.n_episodes}, loss: {loss}")
 
             wandb.log(dict(i=i, train_loss=loss, eps=eps_scheduler.value))
-        # if (i % cfg.target_update_interval) == 0:
-        #     target_model.load_state_dict(model.state_dict())
         update_target_model_step(model, target_model, cfg.tau)
         i += 1
         eps_scheduler.step()
+        if done:
+            break
     wandb.log(dict(episode=i_episode, duration=env.t))
     durations.append(env.t)
     i_episode += 1
