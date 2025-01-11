@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from math import trunc
 from typing import Tuple
 import numpy as np
 import gymnasium as gym
 import torch
+from loguru import logger
 
 from mle.rl.utils import Transition, build_transition
 
@@ -138,4 +138,6 @@ class GymEnv:
         )
         self.t += 1
         self.terminated = terminated
+        if truncated:
+            logger.warning("truncated")
         return transition, terminated or truncated
