@@ -2,7 +2,7 @@ from mle.utils import model_utils
 import torch
 
 import abc
-from torch import distributions as td, nn
+from torch import distributions as td, nn, optim
 
 
 class BasePolicy(abc.ABC, nn.Module):

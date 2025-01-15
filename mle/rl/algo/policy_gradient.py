@@ -1,14 +1,15 @@
 import abc
 from typing import Callable
 import torch
+from torch import optim
 from dataclasses import dataclass
 from mle.rl.environment import GymEnv
+from mle.rl.metrics import MetricsTracker
 from mle.rl.models.policy import BasePolicy
 from mle.rl.utils import Trajectory
 import wandb
 from loguru import logger
-import numpy as np
-
+from mle.trainer import BaseTrainer
 from mle.utils import train_utils
 
 
@@ -27,29 +28,18 @@ class PolicyGradientCfg:
     debug: bool = False
 
 
-class MetricsTracker:
-    def __init__(self):
-        self.reset()
+class PolicyTrainer(BaseTrainer):
+    def __init__(self, policy: BasePolicy, lr: float):
+        super().__init__(policy, optim.Adam, dict(lr=lr))
 
-    def reset(self):
-        self.metrics = []
-
-    def log(self, trajs: list[Trajectory]):
-        metrics = self.calculate(trajs)
-        self.metrics.append(metrics)
-        return metrics
-
-    def calculate(
+    def loss_fn(
         self,
-        trajs: list[Trajectory],
+        advantages: torch.Tensor,
+        actions: torch.Tensor,
+        states: torch.Tensor,
     ):
-        traj_rewards = torch.stack([t.to_tensordict()["reward"].sum() for t in trajs])
-
-        return dict(
-            mean_traj_reward=traj_rewards.mean(),
-            last_traj_reward=traj_rewards[-1],
-            max_traj_reward=traj_rewards.max(),
-        )
+        action_log_probs = self.model.action_dist(states).log_prob(actions)
+        return -(action_log_probs * advantages).mean()
 
 
 class PolicyGradient(abc.ABC):
@@ -114,32 +104,12 @@ class PolicyGradient(abc.ABC):
         std = torch.std(returns)
         return (returns - mu) / std
 
-    def update_policy(
-        self,
-        optimizer: torch.optim.Optimizer,
-        policy: BasePolicy,
-        actions: torch.Tensor,
-        states: torch.Tensor,
-        advantages: torch.Tensor,
-    ) -> float:
-        policy.train()
-        optimizer.zero_grad()
-        action_log_probs = policy.action_dist(states).log_prob(actions)
-        loss = -(action_log_probs * advantages).mean()
-        loss.backward()
-        optimizer.step()
-        return loss.item()
-
-    def train(
-        self,
-        reinit_policy: bool = False,
-    ) -> None:
-        if reinit_policy:
-            self.policy = self.create_policy_fn()
+    def train(self) -> None:
         cfg = self.cfg
         policy = self.policy
-        optimizer = torch.optim.Adam(policy.parameters(), lr=cfg.lr)
         env = self.env
+
+        policy_trainer = PolicyTrainer(policy, lr=cfg.lr)
         if cfg.log_wandb:
             wandb.watch(policy, log="all")
 
@@ -151,6 +121,7 @@ class PolicyGradient(abc.ABC):
                 max_episode_steps=cfg.max_episode_steps,
                 max_total_steps=cfg.batch_size,
             )
+            # [TODO] maybe we want to move this to trainer
             traj_tds = [t.to_tensordict() for t in trajs]
             all_states = torch.concat([t["state"] for t in traj_tds])
             all_actions = torch.concat([t["action"] for t in traj_tds])
@@ -161,14 +132,10 @@ class PolicyGradient(abc.ABC):
                 all_advantages.append(advantages)
             all_advantages = torch.concat(all_advantages)
 
-            loss = self.update_policy(
-                optimizer,
-                policy,
-                actions=all_actions,
-                states=all_states,
-                advantages=all_advantages,
+            loss = policy_trainer.update(
+                advantages=all_advantages, states=all_states, actions=all_actions
             )
-            metrics = metrics_tracker.log(trajs)
+            metrics = metrics_tracker.capture(trajs)
             if cfg.debug:
                 metrics |= dict(
                     train_loss=loss,
