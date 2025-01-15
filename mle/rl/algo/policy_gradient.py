@@ -2,7 +2,7 @@ from typing import Callable
 import torch
 from torch import optim, nn
 from dataclasses import dataclass
-from mle.rl.environment import GymEnv
+from mle.rl.env import GymEnv
 from mle.rl.metrics import MetricsTracker
 from mle.rl.models.policy import BasePolicy
 from mle.rl.utils import Trajectory

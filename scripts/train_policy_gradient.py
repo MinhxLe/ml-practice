@@ -4,7 +4,7 @@ import wandb
 from mle.config import BaseCfg
 from mle.rl.algo.policy_gradient import PolicyGradient, PolicyGradientCfg
 import gymnasium as gym
-from mle.rl.environment import GymEnv
+from mle.rl.env import GymEnv
 from mle.rl.models.policy import CategoricalPolicy, GaussianPolicy
 from mle.utils import model_utils
 from mle.utils.project_utils import init_project

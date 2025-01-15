@@ -4,7 +4,6 @@ DQN implementation for CartPool
 hyperparameters from https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
 """
 
-from sys import exec_prefix
 import wandb
 import torch
 import gymnasium as gym
@@ -12,7 +11,7 @@ from mle.utils.project_utils import init_project
 from mle.scheduler import ExponentialDecayScheduler
 from mle.config import BaseCfg
 from mle.rl.replay_buffer import ReplayBuffer
-from mle.rl.environment import GymEnv
+from mle.rl.env import GymEnv
 from torch import nn, optim
 from dataclasses import dataclass, asdict
 from loguru import logger
