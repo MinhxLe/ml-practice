@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from mle.rl.env import GymEnv
 from mle.rl.metrics import MetricsTracker
 from mle.rl.models.policy import BasePolicy
-from mle.rl.utils import Trajectory
-import wandb
-from loguru import logger
+from mle.rl.core import Trajectory
 from mle.trainer import BaseTrainer
 from mle.utils import train_utils
+import wandb
+from loguru import logger
 
 
 @dataclass(frozen=True)
