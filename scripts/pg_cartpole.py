@@ -27,12 +27,12 @@ class Cfg(BaseCfg):
         n_epochs=100,
         batch_size=2000,
         max_episode_steps=200,
-        log_wandb=False,
+        log_wandb=True,
         train_log_freq=1,
     )
 
     max_episode_steps = 200
-    log_wandb: bool = False
+    log_wandb: bool = True
 
 
 cfg = Cfg(log_wandb=True)
