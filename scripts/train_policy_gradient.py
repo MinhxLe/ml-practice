@@ -9,7 +9,7 @@ from mle.rl.models.policy import CategoricalPolicy, GaussianPolicy
 from mle.utils import model_utils
 from mle.utils.project_utils import init_project
 
-RUN_NAME = "with_baseline_seed1"
+RUN_NAME = "vanilla_seed1"
 
 
 class EnvType(StrEnum):
@@ -30,10 +30,11 @@ class ModelCfg:
 class Cfg(BaseCfg):
     seed: int = 1
     policy_gradient_cfg: PolicyGradientCfg = field(default=NotImplemented)
-    baseline_cfg: ModelCfg | None = ModelCfg(
-        hidden_dim=64,
-        n_hidden_layers=1,
-    )
+    baseline_cfg: ModelCfg | None = None
+    # baseline_cfg: ModelCfg | None = ModelCfg(
+    #     hidden_dim=64,
+    #     n_hidden_layers=1,
+    # )
     policy_cfg: ModelCfg = ModelCfg(
         hidden_dim=64,
         n_hidden_layers=1,

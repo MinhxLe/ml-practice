@@ -60,11 +60,11 @@ class GaussianPolicy(BasePolicy):
             hidden_dim=hidden_dim,
         )
         # [TODO] make it a function of the input
-        self.log_var = nn.Parameter(torch.zeros((action_dim,)))
+        self.log_std = nn.Parameter(torch.zeros((action_dim,)))
 
     def action_dist(self, state) -> td.MultivariateNormal:
         return td.MultivariateNormal(
             # add a small value to be PSD
             loc=self.mu(state),
-            covariance_matrix=torch.diag(self.log_var.exp() + 1e-5),
+            covariance_matrix=torch.diag(self.log_std.exp().square()),
         )
