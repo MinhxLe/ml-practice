@@ -3,7 +3,6 @@ from typing import Tuple
 import numpy as np
 import gymnasium as gym
 import torch
-from loguru import logger
 
 from mle.rl.utils import Transition, build_transition
 
@@ -140,7 +139,7 @@ class GymEnv:
 
     def step(self, action) -> Tuple[Transition, bool]:
         if isinstance(action, torch.Tensor):
-            action = action.numpy()
+            action = action.cpu().numpy()
         if self.terminated:
             raise ValueError("environment terminated, please reset!")
         state = self.state
@@ -155,6 +154,4 @@ class GymEnv:
         )
         self.t += 1
         self.terminated = terminated
-        if truncated:
-            logger.warning("truncated")
         return transition, terminated or truncated

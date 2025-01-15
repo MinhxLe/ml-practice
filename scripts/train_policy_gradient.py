@@ -6,7 +6,10 @@ from mle.rl.algo.policy_gradient import PolicyGradient, PolicyGradientCfg
 import gymnasium as gym
 from mle.rl.environment import GymEnv
 from mle.rl.models.policy import CategoricalPolicy, GaussianPolicy
+from mle.utils import model_utils
 from mle.utils.project_utils import init_project
+
+RUN_NAME = "with_baseline"
 
 
 class EnvType(StrEnum):
@@ -14,19 +17,24 @@ class EnvType(StrEnum):
     PENDULUM = "pendulum"
 
 
-ENV_TYPE = EnvType.CARTPOLE
+ENV_TYPE = EnvType.PENDULUM
 
 
 @dataclass(frozen=True)
-class PolicyCfg:
+class ModelCfg:
     hidden_dim: int
     n_hidden_layers: int
 
 
 @dataclass(frozen=True)
 class Cfg(BaseCfg):
+    seed: int = 1
     policy_gradient_cfg: PolicyGradientCfg = field(default=NotImplemented)
-    policy_cfg: PolicyCfg = PolicyCfg(
+    baseline_cfg: ModelCfg | None = ModelCfg(
+        hidden_dim=64,
+        n_hidden_layers=1,
+    )
+    policy_cfg: ModelCfg = ModelCfg(
         hidden_dim=64,
         n_hidden_layers=1,
     )
@@ -79,12 +87,27 @@ def create_policy():
         )
 
 
+if cfg.baseline_cfg is not None:
+
+    def create_baseline():
+        return model_utils.build_simple_mlp(
+            input_dim=env.state_dim,
+            hidden_dim=cfg.baseline_cfg.hidden_dim,
+            n_hidden_layers=cfg.baseline_cfg.n_hidden_layers,
+            output_dim=1,
+        )
+else:
+    create_baseline = None
+
+
 if cfg.log_wandb:
-    wandb.init(
-        project=cfg.project_name,
-        config=asdict(cfg),
-    )
-pg = PolicyGradient(create_policy, env, cfg.policy_gradient_cfg)
+    wandb.init(project=cfg.project_name, config=asdict(cfg), name=RUN_NAME)
+pg = PolicyGradient(
+    create_policy_fn=create_policy,
+    create_baseline_fn=create_baseline,
+    env=env,
+    cfg=cfg.policy_gradient_cfg,
+)
 pg.train()
 if cfg.log_wandb:
     wandb.finish()
