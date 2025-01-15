@@ -75,3 +75,15 @@ class Trajectory(list[Transition]):
 
     def to_tensordict(self) -> TensorDict:
         return torch.stack(self)
+
+    def total_reward(self) -> float:
+        return self.to_tensordict()["reward"].sum().item()
+
+
+def calculate_returns(traj: Trajectory, gamma: float) -> torch.Tensor:
+    returns = []
+    current_return = 0.0
+    for transition in reversed(traj):
+        current_return = transition.reward + gamma * current_return
+        returns.append(current_return)
+    return torch.tensor(list(reversed(returns)), dtype=torch.float32)
