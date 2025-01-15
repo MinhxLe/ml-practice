@@ -64,5 +64,7 @@ class GaussianPolicy(BasePolicy):
 
     def action_dist(self, state) -> td.MultivariateNormal:
         return td.MultivariateNormal(
-            loc=self.mu(state), covariance_matrix=torch.diag(self.log_var.exp())
+            # add a small value to be PSD
+            loc=self.mu(state),
+            covariance_matrix=torch.diag(self.log_var.exp() + 1e-5),
         )

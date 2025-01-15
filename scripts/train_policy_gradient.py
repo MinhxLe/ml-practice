@@ -9,7 +9,7 @@ from mle.rl.models.policy import CategoricalPolicy, GaussianPolicy
 from mle.utils import model_utils
 from mle.utils.project_utils import init_project
 
-RUN_NAME = "with_baseline"
+RUN_NAME = "with_baseline_seed1"
 
 
 class EnvType(StrEnum):
