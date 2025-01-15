@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from typing import Tuple
-from annotated_types import Not
 import numpy as np
 import gymnasium as gym
 import torch
@@ -141,7 +140,7 @@ class GymEnv:
 
     def step(self, action) -> Tuple[Transition, bool]:
         if isinstance(action, torch.Tensor):
-            action = action.cpu().numpy()
+            action = action.numpy()
         if self.terminated:
             raise ValueError("environment terminated, please reset!")
         state = self.state
