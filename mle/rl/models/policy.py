@@ -14,8 +14,8 @@ class BasePolicy(abc.ABC, nn.Module):
     @abc.abstractmethod
     def action_dist(self, state) -> td.Distribution: ...
 
-    @abc.abstractmethod
-    def act(self, state): ...
+    def act(self, state):
+        return self.action_dist(state).sample()
 
 
 class DiscretePolicy(BasePolicy):
@@ -36,9 +36,6 @@ class DiscretePolicy(BasePolicy):
 
     def action_dist(self, state) -> td.Categorical:
         return td.Categorical(logits=self.layers(state))
-
-    def act(self, state):
-        return self.action_dist(state).sample()
 
 
 class GaussianPolicy(BasePolicy):
@@ -67,9 +64,5 @@ class GaussianPolicy(BasePolicy):
 
     def action_dist(self, state) -> td.MultivariateNormal:
         return td.MultivariateNormal(
-            loc=self.mean(state), covariance_matrix=torch.diag(self.log_var.exp())
+            loc=self.mu(state), covariance_matrix=torch.diag(self.log_var.exp())
         )
-
-    def act(self, state):
-        # rsample so it is differentiable
-        return self.action_dist(state).rsample()

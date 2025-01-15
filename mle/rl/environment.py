@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Tuple
+from annotated_types import Not
 import numpy as np
 import gymnasium as gym
 import torch
@@ -124,7 +125,14 @@ class GymEnv:
 
     @property
     def state(self):
-        return torch.tensor(self._env.unwrapped.state, dtype=self.torch_type)
+        env = self._env.unwrapped
+        if hasattr(env, "state"):
+            state = env.state
+        elif hasattr(env, "state_vector"):
+            state = env.state_vector()
+        else:
+            raise NotImplementedError
+        return torch.tensor(state, dtype=self.torch_type)
 
     def reset(self):
         self.t = 0

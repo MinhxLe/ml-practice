@@ -24,6 +24,7 @@ class PolicyGradientCfg:
     # log
     train_log_freq: int = 10
     log_wandb: bool = True
+    debug: bool = False
 
 
 class MetricsTracker:
@@ -31,14 +32,23 @@ class MetricsTracker:
         self.reset()
 
     def reset(self):
-        self.traj_rewards = []
+        self.metrics = []
 
-    def update(self, traj: Trajectory):
-        self.traj_rewards.append(torch.sum(traj.to_tensordict()["reward"]).cpu().item())
+    def log(self, trajs: list[Trajectory]):
+        metrics = self.calculate(trajs)
+        self.metrics.append(metrics)
+        return metrics
 
-    def get(self):
+    def calculate(
+        self,
+        trajs: list[Trajectory],
+    ):
+        traj_rewards = torch.stack([t.to_tensordict()["reward"].sum() for t in trajs])
+
         return dict(
-            mean_traj_reward=np.mean(self.traj_rewards),
+            mean_traj_reward=traj_rewards.mean(),
+            last_traj_reward=traj_rewards[-1],
+            max_traj_reward=traj_rewards.max(),
         )
 
 
@@ -54,6 +64,7 @@ class PolicyGradient(abc.ABC):
         self.env = env
 
         self.policy = create_policy_fn()
+        self.metrics_tracker = MetricsTracker()
         self._validate_policy_env(self.policy, self.env)
 
     def _validate_policy_env(self, policy: BasePolicy, env: GymEnv):
@@ -157,17 +168,16 @@ class PolicyGradient(abc.ABC):
                 states=all_states,
                 advantages=all_advantages,
             )
-            for traj in trajs:
-                metrics_tracker.update(traj)
-            metrics = metrics_tracker.get() | dict(
-                train_loss=loss,
-                grad_norm=train_utils.compute_grad_norm(policy),
-                epoch=i_epoch + 1,
-            )
-            if cfg.log_wandb:
-                wandb.log(metrics)
-            if (i_epoch % cfg.train_log_freq) == 0:
-                metrics_str = ", ".join(
-                    [f"{mkey}: {mval:.3f}" for mkey, mval in metrics.items()]
+            metrics = metrics_tracker.log(trajs)
+            if cfg.debug:
+                metrics |= dict(
+                    train_loss=loss,
+                    grad_norm=train_utils.compute_grad_norm(policy),
                 )
-                logger.info(f"Epoch {i_epoch+1}/{cfg.n_epochs}, {metrics_str}")
+
+            if cfg.log_wandb:
+                wandb.log(metrics | dict(epoch=i_epoch + 1))
+            if (i_epoch % cfg.train_log_freq) == 0:
+                logger.info(
+                    f"Epoch {i_epoch+1}/{cfg.n_epochs}, mean_reward: {metrics['mean_traj_reward']:.3f}"
+                )

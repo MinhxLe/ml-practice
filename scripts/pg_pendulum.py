@@ -4,7 +4,7 @@ from mle.config import BaseCfg
 from mle.rl.algo.policy_gradient import PolicyGradient, PolicyGradientCfg
 import gymnasium as gym
 from mle.rl.environment import GymEnv
-from mle.rl.models.policy import DiscretePolicy
+from mle.rl.models.policy import DiscretePolicy, GaussianPolicy
 from mle.utils.project_utils import init_project
 
 
@@ -16,7 +16,7 @@ class PolicyCfg:
 
 @dataclass(frozen=True)
 class Cfg(BaseCfg):
-    project_name: str = "pg_cartpole_v2"
+    project_name: str = "pg_pendulum"
     policy_cfg: PolicyCfg = PolicyCfg(
         hidden_dim=64,
         n_hidden_layers=1,
@@ -25,8 +25,8 @@ class Cfg(BaseCfg):
         gamma=1.0,
         lr=3e-2,
         n_epochs=100,
-        batch_size=2000,
-        max_episode_steps=200,
+        batch_size=10_000,
+        max_episode_steps=1_000,
         log_wandb=True,
         train_log_freq=1,
     )
@@ -36,19 +36,17 @@ class Cfg(BaseCfg):
 
 
 cfg = Cfg(log_wandb=True)
-env = GymEnv(gym.make("CartPole-v1"))
+env = GymEnv(gym.make("InvertedPendulum-v4"))
 init_project(cfg)
 
 
 def create_policy():
-    if env.is_discrete:
-        return DiscretePolicy(
-            state_dim=env.state_dim,
-            hidden_dim=cfg.policy_cfg.hidden_dim,
-            n_actions=env.action_dim,
-            n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
-        )
-    raise NotImplementedError
+    return GaussianPolicy(
+        state_dim=env.state_dim,
+        hidden_dim=cfg.policy_cfg.hidden_dim,
+        action_dim=env.action_dim,
+        n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
+    )
 
 
 if cfg.log_wandb:
