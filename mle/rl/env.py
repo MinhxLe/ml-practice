@@ -4,7 +4,7 @@ import numpy as np
 import gymnasium as gym
 import torch
 
-from mle.rl.utils import Transition, build_transition
+from mle.rl.core import Transition, build_transition
 
 
 @dataclass(frozen=True)

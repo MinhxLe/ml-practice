@@ -1,7 +1,7 @@
 import torch
 from tensordict import TensorDict
 
-from mle.rl.utils import Transition
+from mle.rl.core import Transition
 
 
 class ReplayBuffer:

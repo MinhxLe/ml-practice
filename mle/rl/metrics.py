@@ -1,5 +1,5 @@
 import torch
-from mle.rl.utils import Trajectory
+from mle.rl.core import Trajectory
 
 
 class MetricsTracker:
