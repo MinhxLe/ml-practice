@@ -16,6 +16,7 @@ TODO
 [] reconstruction exp
 """
 
+import attrs
 import torch
 from mle.config import BaseCfg
 from mle.models.vae import VaeModel, loss_function
@@ -24,10 +25,9 @@ from tqdm import tqdm
 from torch import optim
 from loguru import logger
 from torchvision.utils import save_image
-from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Cfg(BaseCfg):
     project_name: str = "vae_mnist"
     batch_size: int = 100

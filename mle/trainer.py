@@ -1,5 +1,5 @@
 from typing import Callable, ClassVar
-from torch import optim, nn
+from torch import nn
 
 
 class BaseTrainer:

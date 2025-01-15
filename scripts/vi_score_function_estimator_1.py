@@ -3,8 +3,7 @@ example of variational inference with score function estimator.
 Data is mixture of gaussian
 """
 
-from dataclasses import dataclass
-
+import attrs
 from torch.utils.data import DataLoader
 from mle.config import BaseCfg
 import numpy as np
@@ -13,7 +12,7 @@ from torch import nn
 from tqdm import tqdm
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Cfg(BaseCfg):
     project_name: str = "vi_with_score_function_estimator"
     dataset_size: int = 2000

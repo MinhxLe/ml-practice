@@ -1,7 +1,6 @@
 from typing import Callable
 import torch
 from torch import optim, nn
-from dataclasses import dataclass
 from mle.rl.env import GymEnv
 from mle.rl.metrics import MetricsTracker
 from mle.rl.models.policy import BasePolicy
@@ -10,9 +9,10 @@ from mle.trainer import BaseTrainer
 from mle.utils import train_utils
 import wandb
 from loguru import logger
+import attrs
 
 
-@dataclass(frozen=True)
+@attrs.frozen(kw_only=True)
 class PolicyGradientCfg:
     gamma: float
     # training
@@ -78,6 +78,9 @@ class PolicyGradient:
         assert policy.state_dim == env.state_dim
         assert policy.action_dim == env.action_dim
 
+    def _init_policy_trainer(self, policy, cfg) -> BaseTrainer:
+        return PolicyTrainer(policy, lr=cfg.lr)
+
     @torch.no_grad
     def sample_trajs(
         self,
@@ -132,7 +135,7 @@ class PolicyGradient:
     def train(self) -> None:
         cfg = self.cfg
 
-        policy_trainer = PolicyTrainer(self.policy, lr=cfg.lr)
+        policy_trainer = self._init_policy_trainer(self.policy, cfg)
         if self.baseline:
             baseline_trainer = BaselineTrainer(self.baseline, lr=cfg.lr)
         else:
