@@ -107,8 +107,16 @@ class GymEnv:
         self.torch_type = torch_type
 
     @property
-    def n_actions(self) -> int:
-        return self._env.action_space.n.item()
+    def is_discrete(self):
+        return isinstance(self._env.action_space, gym.spaces.Discrete)
+
+    @property
+    def action_dim(self) -> int:
+        if self.is_discrete:
+            return self._env.action_space.n.item()
+        else:
+            # [TODO] this is not perfect
+            return self._env.action_space.shape[0]
 
     @property
     def state_dim(self) -> int:
@@ -124,6 +132,8 @@ class GymEnv:
         self._env.reset()
 
     def step(self, action) -> Tuple[Transition, bool]:
+        if isinstance(action, torch.Tensor):
+            action = action.cpu().numpy()
         if self.terminated:
             raise ValueError("environment terminated, please reset!")
         state = self.state

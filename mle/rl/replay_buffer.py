@@ -1,6 +1,8 @@
 import torch
 from tensordict import TensorDict
 
+from mle.rl.utils import Transition
+
 
 class ReplayBuffer:
     def __init__(self, max_size: int):
@@ -12,7 +14,7 @@ class ReplayBuffer:
             return 0
         return self.transitions.shape[0]
 
-    def push(self, transition: TensorDict) -> None:
+    def push(self, transition: Transition) -> None:
         if transition.shape == torch.Size([]):
             transition = transition.unsqueeze(0)
 
