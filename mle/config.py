@@ -8,7 +8,6 @@ class BaseCfg:
     root_tmp_dir: str = "./tmp"
     seed: int = 42
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    log_wandb: bool = False
 
     @property
     def project_root_dir(self) -> str:
