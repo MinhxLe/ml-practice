@@ -8,7 +8,7 @@ from sys import exec_prefix
 import wandb
 import torch
 import gymnasium as gym
-from mle.utils import init_project
+from mle.utils.project_utils import init_project
 from mle.scheduler import ExponentialDecayScheduler
 from mle.config import BaseCfg
 from mle.rl.replay_buffer import ReplayBuffer
@@ -30,7 +30,7 @@ class Cfg(BaseCfg):
     end_eps: float = 0.05
     eps_decay_rate: float = 1e-3
 
-    target_update_interval = 100
+    target_update_freq = 100
     tau: float = 0.005  # soft update of weights
 
     # optimizer
@@ -42,7 +42,7 @@ class Cfg(BaseCfg):
     n_episodes: int = 600
 
     # log config
-    train_log_interval: int = 1_000
+    train_log_freq: int = 1_000
 
 
 class Model(nn.Module):
@@ -146,8 +146,8 @@ if cfg.log_wandb:
 
 env = GymEnv(gym.make("CartPole-v1"))
 
-model = Model(env.state_dim, env.n_actions)
-target_model = Model(env.state_dim, env.n_actions)
+model = Model(env.state_dim, env.action_dim)
+target_model = Model(env.state_dim, env.action_dim)
 target_model.load_state_dict(model.state_dict())
 
 # [TODO] awkward we have to put this here
@@ -169,7 +169,7 @@ for i_episode in range(cfg.n_episodes):
         if len(replay_buffer) >= cfg.batch_size:
             transitions = replay_buffer.sample(cfg.batch_size)
             loss = train_model_step(model, target_model, transitions)
-            if (i % cfg.train_log_interval) == 0:
+            if (i % cfg.train_log_freq) == 0:
                 logger.info(f"Episode {i_episode}/{cfg.n_episodes}, loss: {loss}")
 
             wandb.log(dict(i=i, train_loss=loss, eps=eps_scheduler.value))
