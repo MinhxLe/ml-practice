@@ -2,7 +2,7 @@ from mle.utils import model_utils
 import torch
 
 import abc
-from torch import distributions as td, nn, optim
+from torch import distributions as td, nn
 
 
 class BasePolicy(abc.ABC, nn.Module):
@@ -18,7 +18,7 @@ class BasePolicy(abc.ABC, nn.Module):
         return self.action_dist(state).sample()
 
 
-class DiscretePolicy(BasePolicy):
+class CategoricalPolicy(BasePolicy):
     def __init__(
         self,
         state_dim: int,

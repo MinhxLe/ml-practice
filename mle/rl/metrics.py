@@ -1,6 +1,5 @@
 import torch
 from mle.rl.utils import Trajectory
-import numpy as np
 
 
 class MetricsTracker:
@@ -18,6 +17,6 @@ class MetricsTracker:
             last_traj_reward=traj_rewards[-1],
             max_traj_reward=traj_rewards.max(),
         )
-        self.all_rewards.append(traj_rewards.cpu().numpy())
+        self.all_rewards.append(traj_rewards.numpy())
         self.all_metrics.append(metrics)
         return metrics
