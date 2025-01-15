@@ -12,7 +12,7 @@ def build_simple_mlp(
         nn.Linear(input_dim, hidden_dim),
         activation_fn(),
     )
-    for _ in range(n_hidden_layers):
+    for _ in range(n_hidden_layers - 1):
         model.append(nn.Linear(hidden_dim, hidden_dim))
         model.append(activation_fn())
     model.append(nn.Linear(hidden_dim, output_dim))

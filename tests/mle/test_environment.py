@@ -1,4 +1,4 @@
-from mle.rl.environment import TabularEnvSpec, TabularEnv
+from mle.rl.env import TabularEnvSpec, TabularEnv
 import numpy as np
 
 

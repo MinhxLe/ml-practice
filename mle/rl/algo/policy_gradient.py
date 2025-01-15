@@ -1,9 +1,8 @@
-import abc
 from typing import Callable
 import torch
-from torch import optim
+from torch import optim, nn
 from dataclasses import dataclass
-from mle.rl.environment import GymEnv
+from mle.rl.env import GymEnv
 from mle.rl.metrics import MetricsTracker
 from mle.rl.models.policy import BasePolicy
 from mle.rl.utils import Trajectory
@@ -23,9 +22,9 @@ class PolicyGradientCfg:
     batch_size: int
 
     # log
-    train_log_freq: int = 10
+    train_log_freq: int = 1
     log_wandb: bool = True
-    debug: bool = False
+    debug: bool = True
 
 
 class PolicyTrainer(BaseTrainer):
@@ -42,18 +41,36 @@ class PolicyTrainer(BaseTrainer):
         return -(action_log_probs * advantages).mean()
 
 
-class PolicyGradient(abc.ABC):
+class BaselineTrainer(BaseTrainer):
+    def __init__(self, baseline: nn.Module, lr: float):
+        super().__init__(baseline, optim.Adam, dict(lr=lr))
+
+    def loss_fn(
+        self,
+        states: torch.Tensor,
+        returns: torch.Tensor,
+    ):
+        return nn.MSELoss()(self.model(states), returns)
+
+
+class PolicyGradient:
     def __init__(
         self,
         create_policy_fn: Callable[[], BasePolicy],
+        create_baseline_fn: Callable[[], nn.Module] | None,
         env: GymEnv,
         cfg: PolicyGradientCfg,
     ):
         self.cfg = cfg
         self.create_policy_fn = create_policy_fn
+        self.create_baseline_fn = create_baseline_fn
         self.env = env
 
         self.policy = create_policy_fn()
+        if self.create_baseline_fn:
+            self.baseline = self.create_baseline_fn()
+        else:
+            self.baseline = None
         self.metrics_tracker = MetricsTracker()
         self._validate_policy_env(self.policy, self.env)
 
@@ -98,26 +115,39 @@ class PolicyGradient(abc.ABC):
         return torch.tensor(list(reversed(returns)), dtype=torch.float32)
 
     def calculate_advantages(
-        self, traj: Trajectory, returns: torch.Tensor
+        self,
+        returns: torch.Tensor,
+        states: torch.Tensor,
     ) -> torch.Tensor:
-        mu = torch.mean(returns)
-        std = torch.std(returns)
-        return (returns - mu) / std
+        if self.baseline is not None:
+            with torch.no_grad():
+                advantages = returns - self.baseline(states).squeeze(1)
+        else:
+            advantages = returns
+
+        mu = torch.mean(advantages)
+        std = torch.std(advantages)
+        return (advantages - mu) / std
 
     def train(self) -> None:
         cfg = self.cfg
-        policy = self.policy
-        env = self.env
 
-        policy_trainer = PolicyTrainer(policy, lr=cfg.lr)
+        policy_trainer = PolicyTrainer(self.policy, lr=cfg.lr)
+        if self.baseline:
+            baseline_trainer = BaselineTrainer(self.baseline, lr=cfg.lr)
+        else:
+            baseline_trainer = None
+
         if cfg.log_wandb:
-            wandb.watch(policy, log="all")
+            wandb.watch(self.policy, log="all")
+            if self.baseline:
+                wandb.watch(self.baseline, log="all")
 
         metrics_tracker = MetricsTracker()
         for i_epoch in range(cfg.n_epochs):
             trajs = self.sample_trajs(
-                policy,
-                env,
+                self.policy,
+                self.env,
                 max_episode_steps=cfg.max_episode_steps,
                 max_total_steps=cfg.batch_size,
             )
@@ -126,21 +156,33 @@ class PolicyGradient(abc.ABC):
             all_states = torch.concat([t["state"] for t in traj_tds])
             all_actions = torch.concat([t["action"] for t in traj_tds])
             all_advantages = []
-            for traj in trajs:
+            all_returns = []
+            for traj, traj_td in zip(trajs, traj_tds):
                 returns = self.get_returns(traj, cfg.gamma)
-                advantages = self.calculate_advantages(traj, returns)
+                advantages = self.calculate_advantages(returns, traj_td["state"])
                 all_advantages.append(advantages)
+                all_returns.append(returns)
             all_advantages = torch.concat(all_advantages)
+            all_returns = torch.concat(all_returns)
 
-            loss = policy_trainer.update(
+            policy_loss = policy_trainer.update(
                 advantages=all_advantages, states=all_states, actions=all_actions
             )
+            if baseline_trainer is not None:
+                baseline_loss = baseline_trainer.update(
+                    states=all_states,
+                    returns=all_returns,
+                )
+            else:
+                baseline_loss = None
             metrics = metrics_tracker.capture(trajs)
             if cfg.debug:
                 metrics |= dict(
-                    train_loss=loss,
-                    grad_norm=train_utils.compute_grad_norm(policy),
+                    policy_train_loss=policy_loss,
+                    policy_grad_norm=train_utils.compute_grad_norm(self.policy),
                 )
+                if baseline_loss is not None:
+                    metrics |= dict(baseline_train_loss=baseline_loss)
 
             if cfg.log_wandb:
                 wandb.log(metrics | dict(epoch=i_epoch + 1))

@@ -7,7 +7,7 @@ import numpy as np
 from dataclasses import dataclass
 from loguru import logger
 from einops import einsum, reduce
-from mle.rl.environment import TabularEnvSpec
+from mle.rl.env import TabularEnvSpec
 
 
 @dataclass
