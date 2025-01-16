@@ -53,18 +53,12 @@ class GaussianPolicy(BasePolicy):
             n_hidden_layers=n_hidden_layers,
             hidden_dim=hidden_dim,
         )
-        self.log_var = model_utils.build_simple_mlp(
-            input_dim=state_dim,
-            output_dim=action_dim,
-            n_hidden_layers=n_hidden_layers,
-            hidden_dim=hidden_dim,
-        )
         # [TODO] make it a function of the input
         self.log_std = nn.Parameter(torch.zeros((action_dim,)))
 
     def action_dist(self, state) -> td.MultivariateNormal:
         return td.MultivariateNormal(
-            # add a small value to be PSD
             loc=self.mu(state),
-            covariance_matrix=torch.diag(self.log_std.exp().square()),
+            # add a small value to be PSD
+            covariance_matrix=torch.diag(self.log_std.exp().square() + 1e-5),
         )

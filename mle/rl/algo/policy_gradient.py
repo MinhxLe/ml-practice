@@ -6,6 +6,7 @@ from mle.rl.metrics import MetricsTracker
 from mle.rl.models.policy import BasePolicy
 from mle.rl.core import Trajectory, calculate_returns
 from mle.trainer import BaseTrainer
+from mle.external import wandb_driver
 from mle.utils import train_utils
 import wandb
 from loguru import logger
@@ -22,7 +23,6 @@ class PolicyGradientCfg:
     batch_size: int
     # log
     train_log_freq: int = 1
-    log_wandb: bool = True
     debug: bool = True
 
 
@@ -81,9 +81,16 @@ class PolicyTrainer(BaseTrainer):
 
 
 class BaselineTrainer(BaseTrainer):
-    def __init__(self, baseline: nn.Module, lr: float, gamma: float):
+    def __init__(
+        self,
+        baseline: nn.Module,
+        lr: float,
+        gamma: float,
+        n_gradient_steps: int,
+    ):
         super().__init__(baseline, optim.Adam, dict(lr=lr))
         self.gamma = gamma
+        self.n_gradient_steps = n_gradient_steps
 
     def loss_fn(self, states: torch.Tensor, returns: torch.Tensor):
         return nn.MSELoss()(self.model(states), returns)
@@ -94,7 +101,9 @@ class BaselineTrainer(BaseTrainer):
         all_returns = torch.concat(
             [calculate_returns(traj, self.gamma) for traj in trajs]
         )
-        return self._step_optimizer(states=all_states, returns=all_returns)
+        # baseline can be updated multiple times since
+        for _ in range(self.n_gradient_steps):
+            return self._step_optimizer(states=all_states, returns=all_returns)
 
 
 class PolicyGradient:
@@ -129,6 +138,19 @@ class PolicyGradient:
             baseline=self.baseline,
             gamma=self.cfg.gamma,
         )
+
+    def _init_baseline_trainer(self) -> BaselineTrainer | None:
+        cfg = self.cfg
+        if self.baseline:
+            baseline_trainer = BaselineTrainer(
+                self.baseline,
+                lr=cfg.lr,
+                gamma=cfg.gamma,
+                n_gradient_steps=1,
+            )
+        else:
+            baseline_trainer = None
+        return baseline_trainer
 
     @torch.no_grad
     def sample_trajs(
@@ -170,14 +192,9 @@ class PolicyGradient:
         cfg = self.cfg
 
         policy_trainer = self._init_policy_trainer()
-        if self.baseline:
-            baseline_trainer = BaselineTrainer(
-                self.baseline, lr=cfg.lr, gamma=cfg.gamma
-            )
-        else:
-            baseline_trainer = None
+        baseline_trainer = self._init_baseline_trainer()
 
-        if cfg.log_wandb:
+        if wandb_driver.is_initialized():
             wandb.watch(self.policy, log="all")
             if self.baseline:
                 wandb.watch(self.baseline, log="all")
@@ -190,11 +207,11 @@ class PolicyGradient:
                 max_episode_steps=cfg.max_episode_steps,
                 max_total_steps=cfg.batch_size,
             )
-            policy_loss = policy_trainer.update(trajs=trajs)
             if baseline_trainer is not None:
                 baseline_loss = baseline_trainer.update(trajs=trajs)
             else:
                 baseline_loss = None
+            policy_loss = policy_trainer.update(trajs=trajs)
             metrics = metrics_tracker.capture(trajs)
             if cfg.debug:
                 metrics |= dict(
@@ -202,9 +219,13 @@ class PolicyGradient:
                     policy_grad_norm=train_utils.compute_grad_norm(self.policy),
                 )
                 if baseline_loss is not None:
-                    metrics |= dict(baseline_train_loss=baseline_loss)
+                    assert self.baseline is not None
+                    metrics |= dict(
+                        baseline_train_loss=baseline_loss,
+                        baseline_grad_norm=train_utils.compute_grad_norm(self.baseline),
+                    )
 
-            if cfg.log_wandb:
+            if wandb_driver.is_initialized():
                 wandb.log(metrics | dict(epoch=i_epoch + 1))
             if (i_epoch % cfg.train_log_freq) == 0:
                 logger.info(

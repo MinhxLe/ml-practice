@@ -14,6 +14,7 @@ from mle.utils.project_utils import init_project
 class EnvType(StrEnum):
     CARTPOLE = "cartpole"
     PENDULUM = "pendulum"
+    CHEETAH = "cheetah"
 
 
 class AlgoType(StrEnum):
@@ -21,9 +22,9 @@ class AlgoType(StrEnum):
     PPO = "ppo"
 
 
-SEED = 1
-ENV_TYPE = EnvType.CARTPOLE
-ALGO_TYPE = AlgoType.VANILLA
+SEED = 2
+ENV_TYPE = EnvType.CHEETAH
+ALGO_TYPE = AlgoType.PPO
 PROJECT_NAME = f"{ENV_TYPE}"
 RUN_NAME = f"{ALGO_TYPE}_{SEED}"
 
@@ -36,19 +37,28 @@ class ModelCfg:
 
 @attrs.frozen
 class Cfg(BaseCfg):
-    algo_cfg: PolicyGradientCfg | PPOCfg = attrs.field()
-    run_name: str = attrs.field()
+    algo_cfg: PolicyGradientCfg | PPOCfg
+    run_name: str
+    baseline_cfg: ModelCfg | None
+    policy_cfg: ModelCfg
     seed: int = 1
-    # baseline_cfg: ModelCfg | None = None
-    baseline_cfg: ModelCfg | None = ModelCfg(
-        hidden_dim=64,
-        n_hidden_layers=1,
-    )
-    policy_cfg: ModelCfg = ModelCfg(
-        hidden_dim=64,
-        n_hidden_layers=1,
-    )
+    log_wandb: bool = True
 
+
+MODEL_CFG_MAP = {
+    EnvType.CARTPOLE: ModelCfg(
+        hidden_dim=64,
+        n_hidden_layers=1,
+    ),
+    EnvType.PENDULUM: ModelCfg(
+        hidden_dim=64,
+        n_hidden_layers=1,
+    ),
+    EnvType.CHEETAH: ModelCfg(
+        hidden_dim=64,
+        n_hidden_layers=2,
+    ),
+}
 
 ALGO_CFG_MAP = {
     AlgoType.VANILLA: {
@@ -66,6 +76,13 @@ ALGO_CFG_MAP = {
             batch_size=10_000,
             max_episode_steps=1_000,
         ),
+        EnvType.CHEETAH: PolicyGradientCfg(
+            gamma=0.9,
+            lr=3e-2,
+            n_epochs=100,
+            batch_size=10_000,
+            max_episode_steps=1_000,
+        ),
     },
     AlgoType.PPO: {
         EnvType.CARTPOLE: PPOCfg(
@@ -77,11 +94,30 @@ ALGO_CFG_MAP = {
             clipped_eps=0.2,
             n_gradient_steps=10,
         ),
+        EnvType.PENDULUM: PPOCfg(
+            gamma=1.0,
+            lr=3e-2,
+            n_epochs=100,
+            batch_size=10_000,
+            max_episode_steps=1_000,
+            clipped_eps=0.2,
+            n_gradient_steps=20,
+        ),
+        EnvType.CHEETAH: PPOCfg(
+            gamma=0.9,
+            lr=3e-2,
+            n_epochs=200,
+            batch_size=10_000,
+            max_episode_steps=1_000,
+            clipped_eps=0.1,
+            n_gradient_steps=5,
+        ),
     },
 }
 ENV_NAME_MAP = {
     EnvType.CARTPOLE: "CartPole-v1",
-    ENV_TYPE.PENDULUM: "InvertedPendulum-v4",
+    EnvType.PENDULUM: "InvertedPendulum-v4",
+    EnvType.CHEETAH: "HalfCheetah-v4",
 }
 ALGO_CLS_MAP = {
     AlgoType.VANILLA: PolicyGradient,
@@ -93,6 +129,8 @@ env = GymEnv(gym.make(ENV_NAME_MAP[ENV_TYPE]))
 cfg = Cfg(
     project_name=PROJECT_NAME,
     run_name=RUN_NAME,
+    policy_cfg=MODEL_CFG_MAP[ENV_TYPE],
+    baseline_cfg=MODEL_CFG_MAP[ENV_TYPE],
     algo_cfg=ALGO_CFG_MAP[ALGO_TYPE][ENV_TYPE],
 )
 init_project(cfg)

@@ -4,6 +4,7 @@ from torch import nn
 from mle.rl.core import calculate_returns
 
 from mle.rl.algo.policy_gradient import (
+    BaselineTrainer,
     PolicyGradient,
     PolicyGradientCfg,
     PolicyTrainer,
@@ -61,8 +62,8 @@ class PPOPolicyTrainer(PolicyTrainer):
         all_advantages = torch.concat(all_advantages)
         all_returns = torch.concat(all_returns)
         with torch.no_grad():
-            original_action_log_probs = self.model.action_dist(all_states).log_prob(
-                all_actions
+            original_action_log_probs = (
+                self.model.action_dist(all_states).log_prob(all_actions).detach()
             )
 
         total_loss = 0.0
@@ -95,3 +96,16 @@ class PPO(PolicyGradient):
             eps=self.cfg.clipped_eps,
             n_steps=self.cfg.n_gradient_steps,
         )
+
+    def _init_baseline_trainer(self) -> BaselineTrainer | None:
+        cfg = self.cfg
+        if self.baseline:
+            baseline_trainer = BaselineTrainer(
+                self.baseline,
+                lr=cfg.lr,
+                gamma=cfg.gamma,
+                n_gradient_steps=self.cfg.n_gradient_steps,
+            )
+        else:
+            baseline_trainer = None
+        return baseline_trainer
