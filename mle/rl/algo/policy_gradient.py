@@ -6,12 +6,14 @@ from mle.rl.models.policy import BasePolicy
 from mle.rl.core import Trajectory, calculate_returns
 from mle.external import wandb_driver
 from mle.utils import train_utils
+from typing import TypeVar, Generic
 import wandb
 from loguru import logger
 import attrs
+import abc
 
 
-class PolicyTrainer:
+class BasePolicyTrainer(abc.ABC):
     def __init__(
         self,
         policy: BasePolicy,
@@ -24,50 +26,8 @@ class PolicyTrainer:
         self.gamma = gamma
         self.optimizer = optim.Adam(policy.parameters(), lr=lr)
 
-    def _calculate_advantages(
-        self,
-        returns: torch.Tensor,
-        states: torch.Tensor,
-    ):
-        if self.baseline is not None:
-            with torch.no_grad():
-                advantages = returns - self.baseline(states).squeeze(1)
-        else:
-            advantages = returns
-
-        mu = torch.mean(advantages)
-        std = torch.std(advantages)
-        return (advantages - mu) / std
-
-    def loss_fn(
-        self,
-        states: torch.Tensor,
-        actions: torch.Tensor,
-        advantages: torch.Tensor,
-    ):
-        action_log_probs = self.policy.action_dist(states).log_prob(actions)
-        return -(action_log_probs * advantages).mean()
-
-    def update(self, trajs: list[Trajectory]) -> float:
-        traj_tds = [t.to_tensordict() for t in trajs]
-        all_states = torch.concat([t["state"] for t in traj_tds])
-        all_actions = torch.concat([t["action"] for t in traj_tds])
-        all_advantages = []
-        all_returns = []
-        for traj, traj_td in zip(trajs, traj_tds):
-            returns = calculate_returns(traj, self.gamma)
-            advantages = self._calculate_advantages(returns, traj_td["state"])
-            all_advantages.append(advantages)
-            all_returns.append(returns)
-        all_advantages = torch.concat(all_advantages)
-        all_returns = torch.concat(all_returns)
-        self.optimizer.zero_grad()
-        loss = self.loss_fn(
-            states=all_states, advantages=all_advantages, actions=all_actions
-        )
-        loss.backward()
-        self.optimizer.step()
-        return loss.item()
+    @abc.abstractmethod
+    def update(self, trajs: list[Trajectory]) -> float: ...
 
 
 class BaselineTrainer:
@@ -104,7 +64,7 @@ class BaselineTrainer:
 
 
 @attrs.frozen(kw_only=True)
-class PolicyGradientCfg:
+class BasePolicyGradientCfg:
     gamma: float
     # training
     lr: float
@@ -116,13 +76,16 @@ class PolicyGradientCfg:
     debug: bool = True
 
 
-class PolicyGradient:
+ConfigT = TypeVar("ConfigT", bound=BasePolicyGradientCfg)
+
+
+class BasePolicyGradient(abc.ABC, Generic[ConfigT]):
     def __init__(
         self,
         policy: BasePolicy,
         baseline: nn.Module | None,
         env: GymEnv,
-        cfg: PolicyGradientCfg,
+        cfg: ConfigT,
     ):
         self.cfg = cfg
         self.env = env
@@ -135,13 +98,8 @@ class PolicyGradient:
         assert policy.state_dim == env.state_dim
         assert policy.action_dim == env.action_dim
 
-    def _init_policy_trainer(self) -> PolicyTrainer:
-        return PolicyTrainer(
-            self.policy,
-            lr=self.cfg.lr,
-            baseline=self.baseline,
-            gamma=self.cfg.gamma,
-        )
+    @abc.abstractmethod
+    def _init_policy_trainer(self) -> BasePolicyTrainer: ...
 
     def _init_baseline_trainer(self) -> BaselineTrainer:
         assert self.baseline is not None

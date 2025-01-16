@@ -4,16 +4,16 @@ from mle.rl.core import calculate_returns
 
 from mle.rl.algo.policy_gradient import (
     BaselineTrainer,
-    PolicyGradient,
-    PolicyGradientCfg,
-    PolicyTrainer,
+    BasePolicyGradient,
+    BasePolicyGradientCfg,
+    BasePolicyTrainer,
 )
 from mle.rl.core import Trajectory
 from mle.rl.models.policy import BasePolicy
 import attrs
 
 
-class PPOPolicyTrainer(PolicyTrainer):
+class PPOPolicyTrainer(BasePolicyTrainer):
     def __init__(
         self,
         policy: BasePolicy,
@@ -27,6 +27,21 @@ class PPOPolicyTrainer(PolicyTrainer):
         assert 0 < eps < 1
         self.eps = eps
         self.n_steps = n_steps
+
+    def _calculate_advantages(
+        self,
+        returns: torch.Tensor,
+        states: torch.Tensor,
+    ):
+        if self.baseline is not None:
+            with torch.no_grad():
+                advantages = returns - self.baseline(states).squeeze(1)
+        else:
+            advantages = returns
+
+        mu = torch.mean(advantages)
+        std = torch.std(advantages)
+        return (advantages - mu) / std
 
     def loss_fn(
         self,
@@ -74,12 +89,12 @@ class PPOPolicyTrainer(PolicyTrainer):
 
 
 @attrs.frozen(kw_only=True)
-class PPOCfg(PolicyGradientCfg):
+class PPOCfg(BasePolicyGradientCfg):
     clipped_eps: float
     n_gradient_steps: int
 
 
-class PPO(PolicyGradient):
+class PPO(BasePolicyGradient[PPOCfg]):
     def _init_policy_trainer(self):
         return PPOPolicyTrainer(
             policy=self.policy,
@@ -90,15 +105,11 @@ class PPO(PolicyGradient):
             n_steps=self.cfg.n_gradient_steps,
         )
 
-    def _init_baseline_trainer(self) -> BaselineTrainer | None:
-        cfg = self.cfg
-        if self.baseline:
-            baseline_trainer = BaselineTrainer(
-                self.baseline,
-                lr=cfg.lr,
-                gamma=cfg.gamma,
-                n_steps=self.cfg.n_gradient_steps,
-            )
-        else:
-            baseline_trainer = None
-        return baseline_trainer
+    def _init_baseline_trainer(self) -> BaselineTrainer:
+        assert self.baseline is not None
+        return BaselineTrainer(
+            self.baseline,
+            lr=self.cfg.lr,
+            gamma=self.cfg.gamma,
+            n_steps=self.cfg.n_gradient_steps,
+        )
