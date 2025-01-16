@@ -3,7 +3,10 @@ import attrs
 from enum import StrEnum
 import wandb
 from mle.config import BaseCfg
-from mle.rl.algo.policy_gradient import PolicyGradient, PolicyGradientCfg
+from mle.rl.algo.vanilla_policy_gradient import (
+    VanillaPolicyGradient,
+    VanillaPolicyGradientCfg,
+)
 import gymnasium as gym
 from mle.rl.algo.ppo import PPO, PPOCfg
 from mle.rl.env import GymEnv
@@ -25,7 +28,7 @@ class AlgoType(StrEnum):
 
 SEED = 1
 ENV_TYPE = EnvType.CHEETAH
-ALGO_TYPE = AlgoType.PPO
+ALGO_TYPE = AlgoType.VANILLA
 PROJECT_NAME = f"{ENV_TYPE}"
 RUN_NAME = f"{ALGO_TYPE}_{SEED}_{datetime.datetime.now()}"
 
@@ -38,7 +41,7 @@ class ModelCfg:
 
 @attrs.frozen
 class Cfg(BaseCfg):
-    algo_cfg: PolicyGradientCfg | PPOCfg
+    algo_cfg: VanillaPolicyGradientCfg | PPOCfg
     run_name: str
     baseline_cfg: ModelCfg | None
     policy_cfg: ModelCfg
@@ -63,21 +66,21 @@ MODEL_CFG_MAP = {
 
 ALGO_CFG_MAP = {
     AlgoType.VANILLA: {
-        EnvType.CARTPOLE: PolicyGradientCfg(
+        EnvType.CARTPOLE: VanillaPolicyGradientCfg(
             gamma=1.0,
             lr=3e-2,
             n_epochs=100,
             batch_size=2000,
             max_episode_steps=200,
         ),
-        EnvType.PENDULUM: PolicyGradientCfg(
+        EnvType.PENDULUM: VanillaPolicyGradientCfg(
             gamma=1.0,
             lr=3e-2,
             n_epochs=100,
             batch_size=10_000,
             max_episode_steps=1_000,
         ),
-        EnvType.CHEETAH: PolicyGradientCfg(
+        EnvType.CHEETAH: VanillaPolicyGradientCfg(
             gamma=0.9,
             lr=3e-2,
             n_epochs=200,
@@ -121,7 +124,7 @@ ENV_NAME_MAP = {
     EnvType.CHEETAH: "HalfCheetah-v4",
 }
 ALGO_CLS_MAP = {
-    AlgoType.VANILLA: PolicyGradient,
+    AlgoType.VANILLA: VanillaPolicyGradient,
     AlgoType.PPO: PPO,
 }
 
