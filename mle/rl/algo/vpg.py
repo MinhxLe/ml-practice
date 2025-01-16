@@ -7,7 +7,7 @@ import torch
 from mle.rl.core import Trajectory, calculate_returns
 
 
-class VanillaPolicyTrainer(BasePolicyTrainer):
+class VPGTrainer(BasePolicyTrainer):
     def _calculate_advantages(
         self,
         returns: torch.Tensor,
@@ -47,13 +47,13 @@ class VanillaPolicyTrainer(BasePolicyTrainer):
         return loss.item()
 
 
-class VanillaPolicyGradientCfg(BasePolicyGradientCfg):
+class VPGCfg(BasePolicyGradientCfg):
     pass
 
 
-class VanillaPolicyGradient(BasePolicyGradient[VanillaPolicyGradientCfg]):
+class VPG(BasePolicyGradient[VPGCfg]):
     def _init_policy_trainer(self):
-        return VanillaPolicyTrainer(
+        return VPGTrainer(
             self.policy,
             lr=self.cfg.lr,
             baseline=self.baseline,
