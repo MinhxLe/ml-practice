@@ -1,4 +1,3 @@
-from typing import Callable
 import torch
 from torch import optim, nn
 from mle.rl.env import GymEnv
@@ -11,19 +10,6 @@ from mle.utils import train_utils
 import wandb
 from loguru import logger
 import attrs
-
-
-@attrs.frozen(kw_only=True)
-class PolicyGradientCfg:
-    gamma: float
-    # training
-    lr: float
-    n_epochs: int
-    max_episode_steps: int
-    batch_size: int
-    # log
-    train_log_freq: int = 1
-    debug: bool = True
 
 
 class PolicyTrainer(BaseTrainer):
@@ -106,24 +92,31 @@ class BaselineTrainer(BaseTrainer):
             return self._step_optimizer(states=all_states, returns=all_returns)
 
 
+@attrs.frozen(kw_only=True)
+class PolicyGradientCfg:
+    gamma: float
+    # training
+    lr: float
+    n_epochs: int
+    max_episode_steps: int
+    batch_size: int
+    # log
+    train_log_freq: int = 1
+    debug: bool = True
+
+
 class PolicyGradient:
     def __init__(
         self,
-        create_policy_fn: Callable[[], BasePolicy],
-        create_baseline_fn: Callable[[], nn.Module] | None,
+        policy: BasePolicy,
+        baseline: nn.Module | None,
         env: GymEnv,
         cfg: PolicyGradientCfg,
     ):
         self.cfg = cfg
-        self.create_policy_fn = create_policy_fn
-        self.create_baseline_fn = create_baseline_fn
         self.env = env
-
-        self.policy = create_policy_fn()
-        if self.create_baseline_fn:
-            self.baseline = self.create_baseline_fn()
-        else:
-            self.baseline = None
+        self.policy = policy
+        self.baseline = baseline
         self.metrics_tracker = MetricsTracker()
         self._validate_policy_env(self.policy, self.env)
 
@@ -179,14 +172,6 @@ class PolicyGradient:
                 )
             trajs.append(traj)
         return trajs
-
-    def get_returns(self, traj: Trajectory, gamma: float) -> torch.Tensor:
-        returns = []
-        current_return = 0.0
-        for transition in reversed(traj):
-            current_return = transition.reward + gamma * current_return
-            returns.append(current_return)
-        return torch.tensor(list(reversed(returns)), dtype=torch.float32)
 
     def train(self) -> None:
         cfg = self.cfg

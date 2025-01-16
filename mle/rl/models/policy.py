@@ -14,11 +14,18 @@ class BasePolicy(abc.ABC, nn.Module):
     @abc.abstractmethod
     def action_dist(self, state) -> td.Distribution: ...
 
+    @abc.abstractmethod
+    def act(self, state) -> torch.Tensor: ...
+
+
+class BaseStochasticPolicy(BasePolicy, abc.ABC):
+    def action_dist(self, state) -> td.Distribution: ...
+
     def act(self, state):
         return self.action_dist(state).sample()
 
 
-class CategoricalPolicy(BasePolicy):
+class CategoricalPolicy(BaseStochasticPolicy):
     def __init__(
         self,
         state_dim: int,
@@ -38,7 +45,7 @@ class CategoricalPolicy(BasePolicy):
         return td.Categorical(logits=self.layers(state))
 
 
-class GaussianPolicy(BasePolicy):
+class GaussianPolicy(BaseStochasticPolicy):
     def __init__(
         self,
         state_dim: int,

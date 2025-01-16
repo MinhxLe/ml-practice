@@ -1,3 +1,4 @@
+import datetime
 import attrs
 from enum import StrEnum
 import wandb
@@ -24,9 +25,9 @@ class AlgoType(StrEnum):
 
 SEED = 2
 ENV_TYPE = EnvType.CHEETAH
-ALGO_TYPE = AlgoType.PPO
+ALGO_TYPE = AlgoType.VANILLA
 PROJECT_NAME = f"{ENV_TYPE}"
-RUN_NAME = f"{ALGO_TYPE}_{SEED}"
+RUN_NAME = f"{ALGO_TYPE}_{SEED}_{datetime.datetime.now()}"
 
 
 @attrs.frozen
@@ -79,7 +80,7 @@ ALGO_CFG_MAP = {
         EnvType.CHEETAH: PolicyGradientCfg(
             gamma=0.9,
             lr=3e-2,
-            n_epochs=100,
+            n_epochs=200,
             batch_size=10_000,
             max_episode_steps=1_000,
         ),
@@ -105,12 +106,12 @@ ALGO_CFG_MAP = {
         ),
         EnvType.CHEETAH: PPOCfg(
             gamma=0.9,
-            lr=3e-2,
+            lr=1e-2,
             n_epochs=200,
             batch_size=10_000,
             max_episode_steps=1_000,
-            clipped_eps=0.1,
-            n_gradient_steps=5,
+            clipped_eps=0.2,
+            n_gradient_steps=10,
         ),
     },
 }
@@ -136,34 +137,31 @@ cfg = Cfg(
 init_project(cfg)
 
 
-def create_policy():
-    if env.is_discrete:
-        return CategoricalPolicy(
-            state_dim=env.state_dim,
-            hidden_dim=cfg.policy_cfg.hidden_dim,
-            n_actions=env.action_dim,
-            n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
-        )
-    else:
-        return GaussianPolicy(
-            state_dim=env.state_dim,
-            hidden_dim=cfg.policy_cfg.hidden_dim,
-            action_dim=env.action_dim,
-            n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
-        )
+if env.is_discrete:
+    policy = CategoricalPolicy(
+        state_dim=env.state_dim,
+        hidden_dim=cfg.policy_cfg.hidden_dim,
+        n_actions=env.action_dim,
+        n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
+    )
+else:
+    policy = GaussianPolicy(
+        state_dim=env.state_dim,
+        hidden_dim=cfg.policy_cfg.hidden_dim,
+        action_dim=env.action_dim,
+        n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
+    )
 
 
 if cfg.baseline_cfg is not None:
-
-    def create_baseline():
-        return model_utils.build_simple_mlp(
-            input_dim=env.state_dim,
-            hidden_dim=cfg.baseline_cfg.hidden_dim,
-            n_hidden_layers=cfg.baseline_cfg.n_hidden_layers,
-            output_dim=1,
-        )
+    baseline = model_utils.build_simple_mlp(
+        input_dim=env.state_dim,
+        hidden_dim=cfg.baseline_cfg.hidden_dim,
+        n_hidden_layers=cfg.baseline_cfg.n_hidden_layers,
+        output_dim=1,
+    )
 else:
-    create_baseline = None
+    baseline = None
 
 if cfg.log_wandb:
     wandb.init(
@@ -172,8 +170,8 @@ if cfg.log_wandb:
         name=cfg.run_name,
     )
 pg = ALGO_CLS_MAP[ALGO_TYPE](
-    create_policy_fn=create_policy,
-    create_baseline_fn=create_baseline,
+    policy=policy,
+    baseline=baseline,
     env=env,
     cfg=cfg.algo_cfg,
 )
