@@ -6,9 +6,9 @@ https://www.ritchievink.com/blog/2019/05/24/algorithm-breakdown-expectation-maxi
 """
 
 import numpy as np
-from dataclasses import dataclass
 import matplotlib.pyplot as plt
 from scipy import stats
+import attrs
 
 
 class Config:
@@ -22,7 +22,7 @@ class Config:
     n_epoch = 100
 
 
-@dataclass
+@attrs.frozen
 class DatasetParam:
     weights: np.ndarray
     mus: np.ndarray

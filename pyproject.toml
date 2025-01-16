@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "attrs>=24.3.0",
     "einops>=0.8.0",
     "gymnasium[classic-control,mujoco]<1.0.0",
     "loguru>=0.7.3",

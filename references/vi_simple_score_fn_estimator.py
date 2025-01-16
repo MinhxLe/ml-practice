@@ -89,7 +89,7 @@ with torch.no_grad():
     beta = torch.exp(q_trained.log_beta)
     mean = alpha / (alpha + beta)
     variance = (alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1))
-    print(f"\nFinal Parameters:")
+    print("\nFinal Parameters:")
     print(f"Mean: {mean.item():.3f}")
     print(f"Variance: {variance.item():.3f}")
     print(f"Alpha: {alpha.item():.3f}")

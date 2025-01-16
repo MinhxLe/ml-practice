@@ -35,6 +35,15 @@ wheels = [
 ]
 
 [[package]]
+name = "attrs"
+version = "24.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/c8/6260f8ccc11f0917360fc0da435c5c9c7504e3db174d5a12a1494887b045/attrs-24.3.0.tar.gz", hash = "sha256:8f5c07333d543103541ba7be0e2ce16eeee8130cb0b3f9238ab904ce1e85baff", size = 805984 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/aa/ab0f7891a01eeb2d2e338ae8fecbe57fcebea1a24dbb64d45801bfab481d/attrs-24.3.0-py3-none-any.whl", hash = "sha256:ac96cd038792094f438ad1f6ff80837353805ac950cd2aa0e0625ef19850c308", size = 63397 },
+]
+
+[[package]]
 name = "certifi"
 version = "2024.12.14"
 source = { registry = "https://pypi.org/simple" }
@@ -688,6 +697,7 @@ name = "mle"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "attrs" },
     { name = "einops" },
     { name = "gymnasium", extra = ["classic-control", "mujoco"] },
     { name = "loguru" },
@@ -715,6 +725,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "attrs", specifier = ">=24.3.0" },
     { name = "einops", specifier = ">=0.8.0" },
     { name = "gymnasium", extras = ["classic-control", "mujoco"], specifier = "<1.0.0" },
     { name = "loguru", specifier = ">=0.7.3" },

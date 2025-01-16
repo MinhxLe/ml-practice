@@ -1,13 +1,14 @@
 import torch
-from dataclasses import dataclass
+import attrs
 
 
-@dataclass(frozen=True)
+@attrs.frozen(kw_only=True)
 class BaseCfg:
     project_name: str
     root_tmp_dir: str = "./tmp"
     seed: int = 42
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     log_wandb: bool = True
 
     @property

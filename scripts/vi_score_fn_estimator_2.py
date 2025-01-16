@@ -3,7 +3,7 @@ simple implementation fo VI with score function estimttor.
 Data is bernoulli
 """
 
-from dataclasses import dataclass
+import attrs
 
 from torch.utils.data import DataLoader
 from mle.config import BaseCfg
@@ -11,7 +11,7 @@ import torch
 from torch import nn
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Cfg(BaseCfg):
     project_name: str = "vi_with_score_function_estimator"
     n_samples: int = 1000

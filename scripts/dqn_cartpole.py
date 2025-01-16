@@ -13,11 +13,11 @@ from mle.config import BaseCfg
 from mle.rl.replay_buffer import ReplayBuffer
 from mle.rl.env import GymEnv
 from torch import nn, optim
-from dataclasses import dataclass, asdict
 from loguru import logger
+import attrs
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Cfg(BaseCfg):
     project_name: str = "dqn_cartpole"
 
@@ -139,7 +139,7 @@ init_project(cfg)
 if cfg.log_wandb:
     wandb.init(
         project=cfg.project_name,
-        config=asdict(cfg),
+        config=attrs.asdict(cfg),
     )
 
 
