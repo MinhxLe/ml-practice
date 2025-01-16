@@ -23,9 +23,9 @@ class AlgoType(StrEnum):
     PPO = "ppo"
 
 
-SEED = 2
+SEED = 1
 ENV_TYPE = EnvType.CHEETAH
-ALGO_TYPE = AlgoType.VANILLA
+ALGO_TYPE = AlgoType.PPO
 PROJECT_NAME = f"{ENV_TYPE}"
 RUN_NAME = f"{ALGO_TYPE}_{SEED}_{datetime.datetime.now()}"
 

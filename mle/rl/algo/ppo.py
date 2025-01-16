@@ -35,7 +35,7 @@ class PPOPolicyTrainer(PolicyTrainer):
         advantages: torch.Tensor,
         original_action_log_probs: torch.Tensor,
     ):
-        action_log_probs = self.model.action_dist(states).log_prob(actions)
+        action_log_probs = self.policy.action_dist(states).log_prob(actions)
         ratio = torch.exp(action_log_probs - original_action_log_probs)
         clipped_ratio = torch.clip(ratio, min=1 - self.eps, max=1 + self.eps)
         return -torch.minimum(advantages * ratio, advantages * clipped_ratio).mean()
@@ -55,17 +55,21 @@ class PPOPolicyTrainer(PolicyTrainer):
         all_returns = torch.concat(all_returns)
         with torch.no_grad():
             original_action_log_probs = (
-                self.model.action_dist(all_states).log_prob(all_actions).detach()
+                self.policy.action_dist(all_states).log_prob(all_actions).detach()
             )
 
         total_loss = 0.0
         for _ in range(self.n_steps):
-            total_loss += self._step_optimizer(
+            self.optimizer.zero_grad()
+            loss = self.loss_fn(
                 states=all_states,
                 advantages=all_advantages,
                 actions=all_actions,
                 original_action_log_probs=original_action_log_probs,
             )
+            loss.backward()
+            self.optimizer.step()
+            total_loss += loss.item()
         return total_loss / self.n_steps
 
 
@@ -93,7 +97,7 @@ class PPO(PolicyGradient):
                 self.baseline,
                 lr=cfg.lr,
                 gamma=cfg.gamma,
-                n_gradient_steps=self.cfg.n_gradient_steps,
+                n_steps=self.cfg.n_gradient_steps,
             )
         else:
             baseline_trainer = None
