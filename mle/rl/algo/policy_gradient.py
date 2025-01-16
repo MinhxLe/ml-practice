@@ -4,7 +4,6 @@ from mle.rl.env import GymEnv
 from mle.rl.metrics import MetricsTracker
 from mle.rl.models.policy import BasePolicy
 from mle.rl.core import Trajectory, calculate_returns
-from mle.trainer import BaseTrainer
 from mle.external import wandb_driver
 from mle.utils import train_utils
 import wandb
@@ -12,7 +11,7 @@ from loguru import logger
 import attrs
 
 
-class PolicyTrainer(BaseTrainer):
+class PolicyTrainer:
     def __init__(
         self,
         policy: BasePolicy,
@@ -20,9 +19,10 @@ class PolicyTrainer(BaseTrainer):
         lr: float,
         gamma: float,
     ):
-        super().__init__(policy, optim.Adam, dict(lr=lr))
+        self.policy = policy
         self.baseline = baseline
         self.gamma = gamma
+        self.optimizer = optim.Adam(policy.parameters(), lr=lr)
 
     def _calculate_advantages(
         self,
@@ -45,7 +45,7 @@ class PolicyTrainer(BaseTrainer):
         actions: torch.Tensor,
         advantages: torch.Tensor,
     ):
-        action_log_probs = self.model.action_dist(states).log_prob(actions)
+        action_log_probs = self.policy.action_dist(states).log_prob(actions)
         return -(action_log_probs * advantages).mean()
 
     def update(self, trajs: list[Trajectory]) -> float:
@@ -61,25 +61,30 @@ class PolicyTrainer(BaseTrainer):
             all_returns.append(returns)
         all_advantages = torch.concat(all_advantages)
         all_returns = torch.concat(all_returns)
-        return self._step_optimizer(
+        self.optimizer.zero_grad()
+        loss = self.loss_fn(
             states=all_states, advantages=all_advantages, actions=all_actions
         )
+        loss.backward()
+        self.optimizer.step()
+        return loss.item()
 
 
-class BaselineTrainer(BaseTrainer):
+class BaselineTrainer:
     def __init__(
         self,
         baseline: nn.Module,
         lr: float,
         gamma: float,
-        n_gradient_steps: int,
+        n_steps: int,
     ):
-        super().__init__(baseline, optim.Adam, dict(lr=lr))
+        self.baseline = baseline
         self.gamma = gamma
-        self.n_gradient_steps = n_gradient_steps
+        self.n_steps = n_steps
+        self.optimizer = optim.Adam(baseline.parameters(), lr=lr)
 
     def loss_fn(self, states: torch.Tensor, returns: torch.Tensor):
-        return nn.MSELoss()(self.model(states), returns)
+        return nn.MSELoss()(self.baseline(states), returns)
 
     def update(self, trajs: list[Trajectory]) -> float:
         traj_tds = [t.to_tensordict() for t in trajs]
@@ -87,9 +92,15 @@ class BaselineTrainer(BaseTrainer):
         all_returns = torch.concat(
             [calculate_returns(traj, self.gamma) for traj in trajs]
         )
-        # baseline can be updated multiple times since
-        for _ in range(self.n_gradient_steps):
-            return self._step_optimizer(states=all_states, returns=all_returns)
+        # baseline can be updated multiple times
+        total_loss = 0
+        for _ in range(self.n_steps):
+            self.optimizer.zero_grad()
+            loss = self.loss_fn(states=all_states, returns=all_returns)
+            loss.backward()
+            self.optimizer.step()
+            total_loss += loss.item()
+        return total_loss / self.n_steps
 
 
 @attrs.frozen(kw_only=True)
@@ -132,18 +143,14 @@ class PolicyGradient:
             gamma=self.cfg.gamma,
         )
 
-    def _init_baseline_trainer(self) -> BaselineTrainer | None:
-        cfg = self.cfg
-        if self.baseline:
-            baseline_trainer = BaselineTrainer(
-                self.baseline,
-                lr=cfg.lr,
-                gamma=cfg.gamma,
-                n_gradient_steps=1,
-            )
-        else:
-            baseline_trainer = None
-        return baseline_trainer
+    def _init_baseline_trainer(self) -> BaselineTrainer:
+        assert self.baseline is not None
+        return BaselineTrainer(
+            self.baseline,
+            lr=self.cfg.lr,
+            gamma=self.cfg.gamma,
+            n_steps=1,
+        )
 
     @torch.no_grad
     def sample_trajs(
@@ -177,7 +184,10 @@ class PolicyGradient:
         cfg = self.cfg
 
         policy_trainer = self._init_policy_trainer()
-        baseline_trainer = self._init_baseline_trainer()
+        if self.baseline:
+            baseline_trainer = self._init_baseline_trainer()
+        else:
+            baseline_trainer = None
 
         if wandb_driver.is_initialized():
             wandb.watch(self.policy, log="all")
