@@ -3,9 +3,9 @@ import attrs
 from enum import StrEnum
 import wandb
 from mle.config import BaseCfg
-from mle.rl.algo.vanilla_policy_gradient import (
-    VanillaPolicyGradient,
-    VanillaPolicyGradientCfg,
+from mle.rl.algo.vpg import (
+    VPG,
+    VPGCfg,
 )
 import gymnasium as gym
 from mle.rl.algo.ppo import PPO, PPOCfg
@@ -41,9 +41,9 @@ class ModelCfg:
 
 @attrs.frozen
 class Cfg(BaseCfg):
-    algo_cfg: VanillaPolicyGradientCfg | PPOCfg
+    algo_cfg: VPGCfg | PPOCfg
     run_name: str
-    baseline_cfg: ModelCfg | None
+    baseline_cfg: ModelCfg
     policy_cfg: ModelCfg
     seed: int = 1
     log_wandb: bool = True
@@ -66,21 +66,21 @@ MODEL_CFG_MAP = {
 
 ALGO_CFG_MAP = {
     AlgoType.VANILLA: {
-        EnvType.CARTPOLE: VanillaPolicyGradientCfg(
+        EnvType.CARTPOLE: VPGCfg(
             gamma=1.0,
             lr=3e-2,
             n_epochs=100,
             batch_size=2000,
             max_episode_steps=200,
         ),
-        EnvType.PENDULUM: VanillaPolicyGradientCfg(
+        EnvType.PENDULUM: VPGCfg(
             gamma=1.0,
             lr=3e-2,
             n_epochs=100,
             batch_size=10_000,
             max_episode_steps=1_000,
         ),
-        EnvType.CHEETAH: VanillaPolicyGradientCfg(
+        EnvType.CHEETAH: VPGCfg(
             gamma=0.9,
             lr=3e-2,
             n_epochs=200,
@@ -124,7 +124,7 @@ ENV_NAME_MAP = {
     EnvType.CHEETAH: "HalfCheetah-v4",
 }
 ALGO_CLS_MAP = {
-    AlgoType.VANILLA: VanillaPolicyGradient,
+    AlgoType.VANILLA: VPG,
     AlgoType.PPO: PPO,
 }
 
@@ -154,17 +154,12 @@ else:
         action_dim=env.action_dim,
         n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
     )
-
-
-if cfg.baseline_cfg is not None:
-    baseline = model_utils.build_simple_mlp(
-        input_dim=env.state_dim,
-        hidden_dim=cfg.baseline_cfg.hidden_dim,
-        n_hidden_layers=cfg.baseline_cfg.n_hidden_layers,
-        output_dim=1,
-    )
-else:
-    baseline = None
+baseline = model_utils.build_simple_mlp(
+    input_dim=env.state_dim,
+    hidden_dim=cfg.baseline_cfg.hidden_dim,
+    n_hidden_layers=cfg.baseline_cfg.n_hidden_layers,
+    output_dim=1,
+)
 
 if cfg.log_wandb:
     wandb.init(
@@ -178,6 +173,8 @@ pg = ALGO_CLS_MAP[ALGO_TYPE](
     env=env,
     cfg=cfg.algo_cfg,
 )
-pg.train()
-if cfg.log_wandb:
-    wandb.finish()
+try:
+    pg.train()
+finally:
+    if cfg.log_wandb:
+        wandb.finish()

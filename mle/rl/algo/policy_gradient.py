@@ -17,7 +17,7 @@ class BasePolicyTrainer(abc.ABC):
     def __init__(
         self,
         policy: BasePolicy,
-        baseline: nn.Module | None,
+        baseline: nn.Module,
         lr: float,
         gamma: float,
     ):
@@ -76,16 +76,16 @@ class BasePolicyGradientCfg:
     debug: bool = True
 
 
-ConfigT = TypeVar("ConfigT", bound=BasePolicyGradientCfg)
+CfgT = TypeVar("CfgT", bound=BasePolicyGradientCfg)
 
 
-class BasePolicyGradient(abc.ABC, Generic[ConfigT]):
+class BasePolicyGradient(abc.ABC, Generic[CfgT]):
     def __init__(
         self,
         policy: BasePolicy,
-        baseline: nn.Module | None,
+        baseline: nn.Module,
         env: GymEnv,
-        cfg: ConfigT,
+        cfg: CfgT,
     ):
         self.cfg = cfg
         self.env = env
@@ -142,15 +142,11 @@ class BasePolicyGradient(abc.ABC, Generic[ConfigT]):
         cfg = self.cfg
 
         policy_trainer = self._init_policy_trainer()
-        if self.baseline:
-            baseline_trainer = self._init_baseline_trainer()
-        else:
-            baseline_trainer = None
+        baseline_trainer = self._init_baseline_trainer()
 
         if wandb_driver.is_initialized():
             wandb.watch(self.policy, log="all")
-            if self.baseline:
-                wandb.watch(self.baseline, log="all")
+            wandb.watch(self.baseline, log="all")
 
         metrics_tracker = MetricsTracker()
         for i_epoch in range(cfg.n_epochs):
@@ -160,10 +156,8 @@ class BasePolicyGradient(abc.ABC, Generic[ConfigT]):
                 max_episode_steps=cfg.max_episode_steps,
                 max_total_steps=cfg.batch_size,
             )
-            if baseline_trainer is not None:
-                baseline_loss = baseline_trainer.update(trajs=trajs)
-            else:
-                baseline_loss = None
+            # this step is what is different between variants of policy gradient methods
+            baseline_loss = baseline_trainer.update(trajs=trajs)
             policy_loss = policy_trainer.update(trajs=trajs)
             metrics = metrics_tracker.capture(trajs)
             if cfg.debug:
