@@ -11,7 +11,6 @@ class BaseTrainer:
         self.optimizer = optimizer_cls(model.parameters(), **optim_kwargs)
 
     def _step_optimizer(self, **loss_kwargs) -> float:
-        self.model.train()
         self.optimizer.zero_grad()
         loss = self.loss_fn(**loss_kwargs)
         loss.backward()

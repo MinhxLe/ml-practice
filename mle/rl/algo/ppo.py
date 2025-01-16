@@ -1,4 +1,3 @@
-from typing import Callable
 import torch
 from torch import nn
 from mle.rl.core import calculate_returns
@@ -10,15 +9,8 @@ from mle.rl.algo.policy_gradient import (
     PolicyTrainer,
 )
 from mle.rl.core import Trajectory
-from mle.rl.env import GymEnv
 from mle.rl.models.policy import BasePolicy
 import attrs
-
-
-@attrs.frozen(kw_only=True)
-class PPOCfg(PolicyGradientCfg):
-    clipped_eps: float
-    n_gradient_steps: int
 
 
 class PPOPolicyTrainer(PolicyTrainer):
@@ -45,7 +37,7 @@ class PPOPolicyTrainer(PolicyTrainer):
     ):
         action_log_probs = self.model.action_dist(states).log_prob(actions)
         ratio = torch.exp(action_log_probs - original_action_log_probs)
-        clipped_ratio = torch.clip(ratio, 1 - self.eps, 1 + self.eps)
+        clipped_ratio = torch.clip(ratio, min=1 - self.eps, max=1 + self.eps)
         return -torch.minimum(advantages * ratio, advantages * clipped_ratio).mean()
 
     def update(self, trajs: list[Trajectory]) -> float:
@@ -77,16 +69,13 @@ class PPOPolicyTrainer(PolicyTrainer):
         return total_loss / self.n_steps
 
 
-class PPO(PolicyGradient):
-    def __init__(
-        self,
-        create_policy_fn: Callable[[], BasePolicy],
-        create_baseline_fn: Callable[[], nn.Module] | None,
-        env: GymEnv,
-        cfg: PPOCfg,
-    ):
-        super().__init__(create_policy_fn, create_baseline_fn, env, cfg)
+@attrs.frozen(kw_only=True)
+class PPOCfg(PolicyGradientCfg):
+    clipped_eps: float
+    n_gradient_steps: int
 
+
+class PPO(PolicyGradient):
     def _init_policy_trainer(self):
         return PPOPolicyTrainer(
             policy=self.policy,
