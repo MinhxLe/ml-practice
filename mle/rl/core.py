@@ -21,7 +21,7 @@ class Transition(TensorDict):
         return self["time_step"]
 
     @property
-    def terminatee(self) -> torch.Tensor:
+    def terminated(self) -> torch.Tensor:
         return self["terminated"].astype(torch.bool)
 
     @property
@@ -29,6 +29,9 @@ class Transition(TensorDict):
         if self.terminated:
             return None
         return self["next_state"]
+
+
+Transitions = TensorDict
 
 
 def build_transition(

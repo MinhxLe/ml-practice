@@ -12,13 +12,34 @@ class BasePolicy(abc.ABC, nn.Module):
         self.action_dim = action_dim
 
     @abc.abstractmethod
-    def action_dist(self, state) -> td.Distribution: ...
-
-    @abc.abstractmethod
     def act(self, state) -> torch.Tensor: ...
+
+    def forward(self, state):
+        return self.act(state)
+
+
+class SimplePolicy(BasePolicy):
+    def __init__(
+        self,
+        state_dim: int,
+        action_dim: int,
+        n_hidden_layers: int,
+        hidden_dim: int,
+    ):
+        super().__init__(state_dim, action_dim)
+        self.layers = model_utils.build_simple_mlp(
+            input_dim=state_dim,
+            output_dim=action_dim,
+            n_hidden_layers=n_hidden_layers,
+            hidden_dim=hidden_dim,
+        )
+
+    def act(self, state) -> torch.Tensor:
+        return self.layers(state)
 
 
 class BaseStochasticPolicy(BasePolicy, abc.ABC):
+    @abc.abstractmethod
     def action_dist(self, state) -> td.Distribution: ...
 
     def act(self, state):
