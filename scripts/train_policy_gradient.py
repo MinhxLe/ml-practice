@@ -1,3 +1,7 @@
+"""
+WIP - DDPG is really unstable/not working
+"""
+
 import datetime
 import attrs
 from enum import StrEnum
@@ -32,7 +36,8 @@ class AlgoType(StrEnum):
 SEED = 1
 ENV_TYPE = EnvType.PENDULUM
 ALGO_TYPE = AlgoType.DDPG
-PROJECT_NAME = f"{ENV_TYPE}"
+# PROJECT_NAME = f"{ENV_TYPE}"
+PROJECT_NAME = f"{ALGO_TYPE}_{ENV_TYPE}"
 RUN_NAME = f"{ALGO_TYPE}_{SEED}_{datetime.datetime.now()}"
 
 
@@ -122,14 +127,16 @@ ALGO_CFG_MAP = {
     },
     AlgoType.DDPG: {
         EnvType.PENDULUM: DDPGCfg(
-            gamma=1.0,
-            policy_lr=3e-3,
-            q_model_lr=3e-3,
-            n_epochs=10_000_000,
-            max_episode_steps=1_000,
-            batch_size=10_000,
-            update_after=10_000,
-            eval_freq=1000,
+            # gamma=1.0,
+            # policy_lr=3e-4,
+            # q_model_lr=3e-4,
+            # n_epochs=100_000,
+            # max_episode_steps=1_000,
+            # batch_size=200,
+            # update_after=1_000,
+            # update_freq=1_000,
+            # eval_freq=100,
+            # target_update_factor=0.005,
         )
     },
 }
