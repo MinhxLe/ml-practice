@@ -30,7 +30,6 @@ class BaseOffPolicyCfg:
     update_freq: int
     update_after: int
     batch_size: int
-    act_noise_scale: float
     policy_update_freq: int
 
     debug: bool = True
@@ -59,13 +58,20 @@ class BaseOffPolicy(abc.ABC, Generic[CfgT]):
         self.replay_buffer = ReplayBuffer(max_size=cfg.replay_buffer_size)
 
     @abc.abstractmethod
+    def _get_action_for_rollout_step(self, state) -> th.Tensor:
+        pass
+
+    @abc.abstractmethod
     def _update_q_model_step(self, transitions: Transitions) -> dict: ...
+
+    @abc.abstractmethod
+    def _update_target_q_model_step(self) -> None: ...
 
     @abc.abstractmethod
     def _update_policy_step(self, transitions: Transitions) -> dict: ...
 
     @abc.abstractmethod
-    def _update_target_step(self) -> None: ...
+    def _update_target_policy_step(self) -> None: ...
 
     @th.no_grad()
     def sample_eval_trajs(self, n) -> list[Trajectory]:
@@ -100,15 +106,7 @@ class BaseOffPolicy(abc.ABC, Generic[CfgT]):
                     env.reset()
                     done = False
                 with th.no_grad():
-                    # in the sampling phase, we always use the
-                    # current policy.
-                    action = self.policy.act(env.state)
-                    noise = th.randn_like(action) * cfg.act_noise_scale
-                    action = th.clip(
-                        action + noise,
-                        min=th.tensor(self.env._env.action_space.low),
-                        max=th.tensor(self.env._env.action_space.high),
-                    )
+                    action = self._get_action_for_rollout_step(env.state)
                 transition, terminated = env.step(action)
                 done = env.t == cfg.max_episode_steps or terminated
                 traj.append(transition)
@@ -119,9 +117,10 @@ class BaseOffPolicy(abc.ABC, Generic[CfgT]):
                         q_model_metrics = self._update_q_model_step(transitions)
                         if i_step % cfg.policy_update_freq == 0:
                             policy_metrics = self._update_policy_step(transitions)
+                            self._update_target_policy_step()
+                            self._update_target_q_model_step()
                         else:
                             policy_metrics = dict()
-                            self._update_target_step()
 
                     if cfg.debug:
                         train_metrics = (
@@ -140,5 +139,10 @@ class BaseOffPolicy(abc.ABC, Generic[CfgT]):
             trajs = self.sample_eval_trajs(self.cfg.n_eval_trajs)
             metrics = metrics_tracker.capture(trajs)
             if wandb_driver.is_initialized():
-                wandb.log(metrics | dict(epoch=i_epoch + 1))
+                wandb.log(
+                    metrics
+                    | dict(
+                        epoch=i_epoch + 1, step=(i_epoch + 1) * cfg.n_steps_per_epoch
+                    )
+                )
             logger.info(f"Epoch {i_epoch+1}/{cfg.n_epochs}\n{pprint.pformat(metrics)}")
