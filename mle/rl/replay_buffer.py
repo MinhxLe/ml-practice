@@ -1,7 +1,6 @@
 import torch
-from tensordict import TensorDict
 
-from mle.rl.core import Transition
+from mle.rl.core import Transition, Transitions
 
 
 class ReplayBuffer:
@@ -23,14 +22,13 @@ class ReplayBuffer:
         else:
             if self.transitions.shape[0] == self.max_size:
                 self.transitions = self.transitions[1:]
-            try:
-                self.transitions = torch.cat([self.transitions, transition], dim=0)
-            except Exception:
-                __import__("ipdb").set_trace()
 
-    def sample(self, n: int = 1) -> TensorDict:
+            self.transitions = torch.cat([self.transitions, transition], dim=0)
+
+    def sample(self, n: int = 1) -> Transitions:
         if self.transitions is None:
             raise ValueError("no transitions to sample")
         curr_size = self.transitions.shape[0]
         idxs = torch.randperm(curr_size)[:n]
-        return self.transitions[idxs]
+        transitions = self.transitions[idxs]
+        return Transitions(transitions, batch_size=transitions.batch_size)

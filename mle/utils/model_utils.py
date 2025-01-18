@@ -1,4 +1,9 @@
+from typing import TypeVar
+import copy
 from torch import nn
+
+
+ModelT = TypeVar("ModelT", bound=nn.Module)
 
 
 def build_simple_mlp(
@@ -18,3 +23,19 @@ def build_simple_mlp(
     model.append(nn.Linear(hidden_dim, output_dim))
 
     return model
+
+
+def copy_model(model: ModelT) -> ModelT:
+    new_model = copy.deepcopy(model)
+    new_model.load_state_dict(model.state_dict())
+    return new_model
+
+
+def polyak_update(model, target_model, factor):
+    model_dict = model.state_dict()
+    target_model_dict = target_model.state_dict()
+    for key in model_dict:
+        target_model_dict[key] = model_dict[key] * factor + target_model_dict[key] * (
+            1 - factor
+        )
+    target_model.load_state_dict(target_model_dict)
