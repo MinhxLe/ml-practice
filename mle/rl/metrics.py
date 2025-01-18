@@ -1,4 +1,4 @@
-import torch
+import numpy as np
 from mle.rl.core import Trajectory
 
 
@@ -11,13 +11,13 @@ class MetricsTracker:
         self.all_rewards = []
 
     def capture(self, trajs: list[Trajectory]):
-        traj_rewards = torch.stack([t.to_tensordict()["reward"].sum() for t in trajs])
+        rewards = [t.total_reward() for t in trajs]
         metrics = dict(
-            mean_traj_reward=traj_rewards.mean(),
-            max_traj_reward=traj_rewards.max(),
-            min_traj_reward=traj_rewards.min(),
-            std_traj_reward=traj_rewards.std(),
+            mean_traj_reward=np.mean(rewards),
+            max_traj_reward=np.max(rewards),
+            min_traj_reward=np.min(rewards),
+            std_traj_reward=np.std(rewards),
         )
-        self.all_rewards.append(traj_rewards.cpu().numpy())
+        self.all_rewards.append(rewards)
         self.all_metrics.append(metrics)
         return metrics

@@ -22,16 +22,15 @@ class Transition(TensorDict):
 
     @property
     def terminated(self) -> torch.Tensor:
-        return self["terminated"].astype(torch.bool)
+        return self["terminated"].to(torch.bool)
 
     @property
-    def next_state(self) -> torch.Tensor | None:
-        if self.terminated:
-            return None
+    def next_state(self) -> torch.Tensor:
         return self["next_state"]
 
 
-Transitions = TensorDict
+# TODO figure out howt o add a batch dim here
+Transitions = Transition
 
 
 def build_transition(
@@ -79,8 +78,11 @@ class Trajectory(list[Transition]):
     def to_tensordict(self) -> TensorDict:
         return torch.stack(self)
 
+    def to_transitions(self) -> Transitions:
+        return Transitions(torch.stack(self), batch_size=torch.Size([len(self)]))
+
     def total_reward(self) -> float:
-        return self.to_tensordict()["reward"].sum().item()
+        return self.to_transitions().reward.sum().item()
 
 
 def calculate_returns(traj: Trajectory, gamma: float) -> torch.Tensor:
