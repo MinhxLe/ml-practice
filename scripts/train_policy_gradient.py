@@ -168,19 +168,21 @@ ALGO_CFG_MAP = {
         )
     },
     AlgoType.SAC: {
+        # [TODO] doesn't really work yet
         EnvType.PENDULUM: SACCfg(
             gamma=0.99,
             max_episode_steps=1_000,
             polyak_update_factor=0.005,
             policy_lr=1e-3,
-            q_model_lr=1e-3,
+            q_model_lr=3e-2,
             policy_update_freq=1,
             entropy_factor=0.1,
-            entropy_clip=-100,
+            entropy_clip=100,
             n_total_steps=100_000,
             update_after=1_000,
             batch_size=1_000,
             debug=True,
+            log_train_freq=1_000,
         )
     },
 }

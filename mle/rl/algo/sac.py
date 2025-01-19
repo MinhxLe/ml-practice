@@ -69,8 +69,8 @@ class SAC(BaseOffPolicy[SACCfg]):
                 self.target_q_model1(next_states, next_actions),
                 self.target_q_model2(next_states, next_actions),
             ).squeeze(1)
-            entropy = th.clip(next_action_log_probs, self.cfg.entropy_clip, 0)
-
+            entropy = th.clip(next_action_log_probs, -self.cfg.entropy_clip, 0)
+            # entropy = 0
             target_q = rewards + cfg.gamma * (1 - terminated) * (
                 future_returns - cfg.entropy_factor * entropy
             )
@@ -85,15 +85,16 @@ class SAC(BaseOffPolicy[SACCfg]):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            # metrics[f"q_model{i}_loss"] = loss.item()
-            # metrics[f"q_model{i}_grad_norm"] = train_utils.compute_grad_norm(q_model)
+            metrics[f"q_model{i}_loss"] = loss.item()
+            metrics[f"q_model{i}_grad_norm"] = train_utils.compute_grad_norm(q_model)
         return metrics
 
     def _update_policy_step(self, transitions: Transitions) -> dict:
         states = transitions.state
-        actions = self.policy(states)
+        actions = self.policy.act(states)
         log_probs = self.policy.log_prob(states, actions)
-        entropy = th.clip(log_probs, self.cfg.entropy_clip, 0)
+        entropy = th.clip(log_probs, -self.cfg.entropy_clip, 0)
+        # entropy = 0
         q_value = th.minimum(
             self.q_model1(states, actions),
             self.q_model2(states, actions),
@@ -105,8 +106,8 @@ class SAC(BaseOffPolicy[SACCfg]):
         return dict(
             policy_loss=loss.item(),
             policy_grad_norm=train_utils.compute_grad_norm(self.policy),
-            policy_log_prob=log_probs.min().item(),
-            policy_q_value=q_value.max().item(),
+            mean_policy_log_prob=log_probs.mean().item(),
+            mean_policy_q_value=q_value.mean().item(),
         )
 
     def _update_target_policy_step(self) -> None:

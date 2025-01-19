@@ -1,5 +1,8 @@
+from math import tanh
+from loguru import logger
 from mle.utils import model_utils
 import torch as th
+import random
 
 import abc
 from torch import distributions as td, nn
@@ -153,13 +156,15 @@ class TanhNormalPolicy(BasePolicy):
             # action because tanh(atanh(action))
             (1 - action.pow(2)).log().sum(dim=1)
         )
-        # if random.random() < 0.01:
-        #     logger.debug(
-        #         dict(
-        #             diff=(pre_tanh_action - mu).mean().item(),
-        #             log_std=self.log_std(state).mean().item(),
-        #             normal_log_prob=normal_log_prob.mean().item(),
-        #             tanh_jacobian=tanh_jacobian.mean().item(),
-        #         )
-        #     )
-        return normal_log_prob - tanh_jacobian
+        if random.random() < 0.01:
+            logger.debug(
+                dict(
+                    pre_tanh_action=pre_tanh_action.mean().item(),
+                    mu=mu.mean().item(),
+                    log_std=self.log_std(state).mean().item(),
+                    normal_log_prob=normal_log_prob.mean().item(),
+                    tanh_jacobian=tanh_jacobian.mean().item(),
+                )
+            )
+
+        return th.clamp(normal_log_prob - tanh_jacobian, -5, 2)
