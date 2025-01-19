@@ -45,7 +45,7 @@ class AlgoType(StrEnum):
 
 SEED = 1
 ENV_TYPE = EnvType.PENDULUM
-ALGO_TYPE = AlgoType.TD3
+ALGO_TYPE = AlgoType.SAC
 # PROJECT_NAME = f"{ENV_TYPE}"
 PROJECT_NAME = f"{ALGO_TYPE}_{ENV_TYPE}"
 RUN_NAME = f"{ALGO_TYPE}_{SEED}_{datetime.datetime.now()}"
@@ -64,7 +64,7 @@ class Cfg(BaseCfg):
     baseline_cfg: ModelCfg
     policy_cfg: ModelCfg
     seed: int = 1
-    log_wandb: bool = False
+    log_wandb: bool = True
 
 
 MODEL_CFG_MAP = {
@@ -159,14 +159,12 @@ ALGO_CFG_MAP = {
             target_act_noise_clip=0.5,
             policy_lr=1e-3,
             q_model_lr=3e-2,
-            policy_update_freq=1,
-            n_epochs=50,
-            n_steps_per_epoch=5_000,
+            policy_update_freq=2,
+            n_total_steps=100_000,
             update_after=1_000,
             update_freq=1,
             batch_size=1_000,
             debug=True,
-            log_train_freq=1_000,
         )
     },
     AlgoType.SAC: {
@@ -175,16 +173,14 @@ ALGO_CFG_MAP = {
             max_episode_steps=1_000,
             polyak_update_factor=0.005,
             policy_lr=1e-3,
-            q_model_lr=1e-2,
+            q_model_lr=1e-3,
             policy_update_freq=1,
             entropy_factor=0.1,
-            update_freq=1,
-            n_epochs=50,
-            n_steps_per_epoch=5_000,
+            entropy_clip=-100,
+            n_total_steps=100_000,
             update_after=1_000,
             batch_size=1_000,
             debug=True,
-            log_train_freq=1_000,
         )
     },
 }

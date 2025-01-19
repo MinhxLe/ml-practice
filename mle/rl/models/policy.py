@@ -1,5 +1,3 @@
-from math import log
-from loguru import logger
 from mle.utils import model_utils
 import torch as th
 
@@ -149,8 +147,11 @@ class TanhNormalPolicy(BasePolicy):
         covar = th.diag_embed(self.log_std(state).exp().square() + 1e-6)
         action = th.clip(action, -1 + 1e-6, 1 - 1e-6)
         pre_tanh_action = th.atanh(action)
-        log_prob = th.distributions.MultivariateNormal(mu, covar).log_prob(
+        normal_log_prob = th.distributions.MultivariateNormal(mu, covar).log_prob(
             pre_tanh_action
-        ) - (1 - action.pow(2)).log().sum(dim=1)  # determinant of jacobian of tanh(x)
-
-        return log_prob
+        )
+        tanh_jacobian = (
+            # action because tanh(atanh(action))
+            (1 - action.pow(2) + 1e-6).log().sum(dim=1)
+        )
+        return normal_log_prob - tanh_jacobian

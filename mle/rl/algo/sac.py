@@ -13,9 +13,11 @@ from torch.nn import functional as F
 class SACCfg(BaseOffPolicyCfg):
     pass
     entropy_factor: float  # entropy factor into loss
+    entropy_clip: float
     policy_lr: float
     q_model_lr: float
     polyak_update_factor: float
+    update_freq: int = attrs.field(init=False, default=1)
 
 
 @attrs.define
@@ -67,9 +69,10 @@ class SAC(BaseOffPolicy[SACCfg]):
                 self.target_q_model1(next_states, next_actions),
                 self.target_q_model2(next_states, next_actions),
             ).squeeze(1)
+            entropy = th.clip(next_action_log_probs, self.cfg.entropy_clip, 0)
 
             target_q = rewards + cfg.gamma * (1 - terminated) * (
-                future_returns - cfg.entropy_factor * next_action_log_probs
+                future_returns - cfg.entropy_factor * entropy
             )
         metrics = dict()
         for i, (q_model, optimizer) in enumerate(
@@ -82,25 +85,28 @@ class SAC(BaseOffPolicy[SACCfg]):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            metrics[f"q_model{i}_loss"] = loss.item()
-            metrics[f"q_model{i}_grad_norm"] = train_utils.compute_grad_norm(q_model)
+            # metrics[f"q_model{i}_loss"] = loss.item()
+            # metrics[f"q_model{i}_grad_norm"] = train_utils.compute_grad_norm(q_model)
         return metrics
 
     def _update_policy_step(self, transitions: Transitions) -> dict:
         states = transitions.state
         actions = self.policy(states)
         log_probs = self.policy.log_prob(states, actions)
+        entropy = th.clip(log_probs, self.cfg.entropy_clip, 0)
         q_value = th.minimum(
             self.q_model1(states, actions),
             self.q_model2(states, actions),
         )
-        loss = -(q_value - self.cfg.entropy_factor * log_probs).mean()
+        loss = -(q_value - self.cfg.entropy_factor * entropy).mean()
         self.policy_optimizer.zero_grad()
         loss.backward()
         self.policy_optimizer.step()
         return dict(
             policy_loss=loss.item(),
             policy_grad_norm=train_utils.compute_grad_norm(self.policy),
+            policy_log_prob=log_probs.min().item(),
+            policy_q_value=q_value.max().item(),
         )
 
     def _update_target_policy_step(self) -> None:
