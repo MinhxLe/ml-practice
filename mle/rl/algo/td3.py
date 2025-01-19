@@ -19,6 +19,7 @@ from mle.utils import model_utils, train_utils
 class TD3Cfg(BaseOffPolicyCfg):
     polyak_update_factor: float  # how much to update the target network
 
+    act_noise_scale: float
     target_act_noise_scale: float
     target_act_noise_clip: float
 
@@ -53,6 +54,15 @@ class TD3(BaseOffPolicy[TD3Cfg]):
         )
         self.policy_optimizer = th.optim.Adam(
             self.policy.parameters(), lr=self.cfg.policy_lr
+        )
+
+    def _get_action_for_rollout_step(self, state):
+        action = self.policy.act(state)
+        noise = th.randn_like(action) * self.cfg.act_noise_scale
+        return th.clip(
+            action + noise,
+            min=th.tensor(self.env._env.action_space.low),
+            max=th.tensor(self.env._env.action_space.high),
         )
 
     def _get_target_policy_action(self, state):
@@ -95,14 +105,12 @@ class TD3(BaseOffPolicy[TD3Cfg]):
             )
         ):
             # mean squared belman error
-            pred_q_value = q_model(states, actions).squeeze(1)
             loss = F.mse_loss(q_model(states, actions).squeeze(1), target_q_value)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             metrics[f"q_model{i}_loss"] = loss.item()
             metrics[f"q_model{i}_grad_norm"] = train_utils.compute_grad_norm(q_model)
-            metrics[f"q_model{i}_max_q"] = pred_q_value.max().item()
         return metrics
 
     def _update_policy_step(self, transitions: Transitions) -> dict:
@@ -120,8 +128,11 @@ class TD3(BaseOffPolicy[TD3Cfg]):
             policy_grad_norm=train_utils.compute_grad_norm(policy),
         )
 
-    def _update_target_step(self) -> None:
+    def _update_target_policy_step(self) -> None:
+        factor = self.cfg.polyak_update_factor
+        model_utils.polyak_update(self.policy, self.target_policy, factor)
+
+    def _update_target_q_model_step(self) -> None:
         factor = self.cfg.polyak_update_factor
         model_utils.polyak_update(self.q_model1, self.target_q_model1, factor)
         model_utils.polyak_update(self.q_model2, self.target_q_model2, factor)
-        model_utils.polyak_update(self.policy, self.target_policy, factor)
