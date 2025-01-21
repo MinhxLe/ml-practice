@@ -193,130 +193,127 @@ ENV_NAME_MAP = {
     EnvType.CHEETAH: "HalfCheetah-v4",
 }
 
-
-env = GymEnv(gym.make(ENV_NAME_MAP[ENV_TYPE]))
-cfg = Cfg(
-    project_name=PROJECT_NAME,
-    run_name=RUN_NAME,
-    policy_cfg=MODEL_CFG_MAP[ENV_TYPE],
-    baseline_cfg=MODEL_CFG_MAP[ENV_TYPE],
-    algo_cfg=ALGO_CFG_MAP[ALGO_TYPE][ENV_TYPE],
-)
-init_project(cfg)
-if cfg.log_wandb:
-    wandb.init(
-        project=cfg.project_name,
-        config=attrs.asdict(cfg),
-        name=cfg.run_name,
+if __name__ == "__main__":
+    env = GymEnv(gym.make(ENV_NAME_MAP[ENV_TYPE]))
+    cfg = Cfg(
+        project_name=PROJECT_NAME,
+        run_name=RUN_NAME,
+        policy_cfg=MODEL_CFG_MAP[ENV_TYPE],
+        baseline_cfg=MODEL_CFG_MAP[ENV_TYPE],
+        algo_cfg=ALGO_CFG_MAP[ALGO_TYPE][ENV_TYPE],
     )
-
-
-if ALGO_TYPE in [AlgoType.VPG, AlgoType.PPO]:
-    if env.is_discrete:
-        policy = CategoricalPolicy(
-            state_dim=env.state_dim,
-            hidden_dim=cfg.policy_cfg.hidden_dim,
-            n_actions=env.action_dim,
-            n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
-        )
-    else:
-        policy = GaussianPolicy(
-            state_dim=env.state_dim,
-            hidden_dim=cfg.policy_cfg.hidden_dim,
-            action_dim=env.action_dim,
-            n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
-        )
-    baseline = model_utils.build_simple_mlp(
-        input_dim=env.state_dim,
-        hidden_dim=cfg.baseline_cfg.hidden_dim,
-        n_hidden_layers=cfg.baseline_cfg.n_hidden_layers,
-        output_dim=1,
-    )
-    pg = {
-        AlgoType.VPG: VPG,
-        AlgoType.PPO: PPO,
-    }[ALGO_TYPE](
-        policy=policy,
-        baseline=baseline,
-        env=env,
-        cfg=cfg.algo_cfg,
-    )
-elif ALGO_TYPE == AlgoType.DDPG:
-    policy = SimplePolicy(
-        env.state_dim,
-        env.action_dim,
-        n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
-        hidden_dim=cfg.policy_cfg.hidden_dim,
-    )
-    q_model = SimpleQModel(
-        state_dim=env.state_dim,
-        action_dim=env.action_dim,
-        hidden_dim=cfg.baseline_cfg.hidden_dim,
-        n_hidden_layers=cfg.baseline_cfg.n_hidden_layers,
-    )
-    pg = DDPG(
-        env=env,
-        q_model=q_model,
-        policy=policy,
-        cfg=cfg.algo_cfg,
-    )
-elif ALGO_TYPE in [AlgoType.DDPG, AlgoType.TD3, AlgoType.SAC]:
-    if ALGO_TYPE == AlgoType.SAC:
-        policy = TanhNormalPolicy(
-            env.state_dim,
-            env.action_dim,
-            n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
-            hidden_dim=cfg.policy_cfg.hidden_dim,
+    init_project(cfg)
+    if cfg.log_wandb:
+        wandb.init(
+            project=cfg.project_name,
+            config=attrs.asdict(cfg),
+            name=cfg.run_name,
         )
 
-    else:
+    if ALGO_TYPE in [AlgoType.VPG, AlgoType.PPO]:
+        if env.is_discrete:
+            policy = CategoricalPolicy(
+                state_dim=env.state_dim,
+                hidden_dim=cfg.policy_cfg.hidden_dim,
+                n_actions=env.action_dim,
+                n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
+            )
+        else:
+            policy = GaussianPolicy(
+                state_dim=env.state_dim,
+                hidden_dim=cfg.policy_cfg.hidden_dim,
+                action_dim=env.action_dim,
+                n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
+            )
+        baseline = model_utils.build_simple_mlp(
+            input_dim=env.state_dim,
+            hidden_dim=cfg.baseline_cfg.hidden_dim,
+            n_hidden_layers=cfg.baseline_cfg.n_hidden_layers,
+            output_dim=1,
+        )
+        pg = {
+            AlgoType.VPG: VPG,
+            AlgoType.PPO: PPO,
+        }[ALGO_TYPE](
+            policy=policy,
+            baseline=baseline,
+            env=env,
+            cfg=cfg.algo_cfg,
+        )
+    elif ALGO_TYPE == AlgoType.DDPG:
         policy = SimplePolicy(
             env.state_dim,
             env.action_dim,
             n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
             hidden_dim=cfg.policy_cfg.hidden_dim,
         )
-
-    def create_q_model_fn():
-        return SimpleQModel(
+        q_model = SimpleQModel(
             state_dim=env.state_dim,
             action_dim=env.action_dim,
             hidden_dim=cfg.baseline_cfg.hidden_dim,
             n_hidden_layers=cfg.baseline_cfg.n_hidden_layers,
         )
-
-    if ALGO_TYPE == AlgoType.DDPG:
         pg = DDPG(
             env=env,
-            q_model=create_q_model_fn(),
+            q_model=q_model,
             policy=policy,
             cfg=cfg.algo_cfg,
         )
-    elif ALGO_TYPE == AlgoType.TD3:
-        pg = TD3(
-            policy=policy,
-            env=env,
-            cfg=cfg.algo_cfg,
-            create_q_model_fn=create_q_model_fn,
-        )
-    elif ALGO_TYPE == AlgoType.SAC:
-        pg = SAC(
-            policy=policy,
-            env=env,
-            cfg=cfg.algo_cfg,
-            create_q_model_fn=create_q_model_fn,
-        )
+    elif ALGO_TYPE in [AlgoType.DDPG, AlgoType.TD3, AlgoType.SAC]:
+        if ALGO_TYPE == AlgoType.SAC:
+            policy = TanhNormalPolicy(
+                env.state_dim,
+                env.action_dim,
+                n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
+                hidden_dim=cfg.policy_cfg.hidden_dim,
+            )
+
+        else:
+            policy = SimplePolicy(
+                env.state_dim,
+                env.action_dim,
+                n_hidden_layers=cfg.policy_cfg.n_hidden_layers,
+                hidden_dim=cfg.policy_cfg.hidden_dim,
+            )
+
+        def create_q_model_fn():
+            return SimpleQModel(
+                state_dim=env.state_dim,
+                action_dim=env.action_dim,
+                hidden_dim=cfg.baseline_cfg.hidden_dim,
+                n_hidden_layers=cfg.baseline_cfg.n_hidden_layers,
+            )
+
+        if ALGO_TYPE == AlgoType.DDPG:
+            pg = DDPG(
+                env=env,
+                q_model=create_q_model_fn(),
+                policy=policy,
+                cfg=cfg.algo_cfg,
+            )
+        elif ALGO_TYPE == AlgoType.TD3:
+            pg = TD3(
+                policy=policy,
+                env=env,
+                cfg=cfg.algo_cfg,
+                create_q_model_fn=create_q_model_fn,
+            )
+        elif ALGO_TYPE == AlgoType.SAC:
+            pg = SAC(
+                policy=policy,
+                env=env,
+                cfg=cfg.algo_cfg,
+                create_q_model_fn=create_q_model_fn,
+            )
+
+        else:
+            raise NotImplementedError
 
     else:
         raise NotImplementedError
 
-
-else:
-    raise NotImplementedError
-
-
-try:
-    pg.train()
-finally:
-    if cfg.log_wandb:
-        wandb.finish()
+    try:
+        pg.train()
+    finally:
+        if cfg.log_wandb:
+            wandb.finish()

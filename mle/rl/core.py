@@ -1,4 +1,5 @@
 from typing import List
+from loguru import logger
 from tensordict import TensorDict
 import torch
 
@@ -85,10 +86,14 @@ class Trajectory(list[Transition]):
         return self.to_transitions().reward.sum().item()
 
 
+def calculate_discounted_cumsum(values: torch.Tensor, gamma: float) -> torch.Tensor:
+    all_cumsum = []
+    cumsum = 0
+    for value in values:
+        cumsum = value.item() + (gamma * cumsum)
+        all_cumsum.append(cumsum)
+    return torch.tensor(list(reversed(all_cumsum)), dtype=torch.float32)
+
+
 def calculate_returns(traj: Trajectory, gamma: float) -> torch.Tensor:
-    returns = []
-    current_return = 0.0
-    for transition in reversed(traj):
-        current_return = transition.reward + gamma * current_return
-        returns.append(current_return)
-    return torch.tensor(list(reversed(returns)), dtype=torch.float32)
+    return calculate_discounted_cumsum(traj.to_transitions().reward, gamma)
